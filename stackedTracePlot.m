@@ -17,6 +17,6 @@ function out = stackedTracePlot(X,Y,highlightIdx)
         for k=1:size(highlightIdx,1)
             a = highlightIdx(k,1);
             b = highlightIdx(k,2);
-            plot(X(a:b),Y2(l,a:b),'r','LineWidth',2)
+            plot(X(a:b),Y2(l,a:b)+(l-1)*maxRng,'r','LineWidth',2)
         end
     end
