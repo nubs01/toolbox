@@ -1,3 +1,4 @@
 @ea_dir
 .DS_Store
 *.swp
+*.m~
