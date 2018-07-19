@@ -1,5 +1,8 @@
 function rn_createNQArtifactFiles(dataDir,animID,sessionNum,varargin)
-% Grabs LFP from all tetrodes for a given day and identifies artifacts by noting periods of high (> nstd from mean) cross-correlation. Data is saved in filterframework format.
+% rn_createNQArtifactFile(dataDir,animID,sessionNum,varargin)
+% Grabs LFP from all tetrodes for a given day and identifies artifacts by 
+% noting periods of high (> nstd from mean) cross-correlation. Data is 
+% saved in filterframework format.
 % NAME-VALUE pairs
 % nstd   : number of std deviations above mean cross-correlation to threshold at [default = 1]
 % winSize: window size in seconds to break data into for analysis [default = 1]
@@ -21,7 +24,7 @@ if ~exist(artDir,'dir')
 end
 
 % Get all EEG files for the day
-eegFiles = dir(sprintf('%s%seeg%02i-*-*.mat',dataDir,animID,sessionNum));
+eegFiles = dir(sprintf('%s%seeg%02i-*-*.mat',eegDir,animID,sessionNum));
 if isempty(eegFiles)
     fprintf('No EEG files found for day %02i. Skipping...\n',sessionNum);
     return;
@@ -61,14 +64,14 @@ for ee=epochs
     end
 
     nDat = numel(timeVec);
-    eegMat = vercat(eegCell{:,4}); % matrix of eeg traces from all tetrodes (rows) in the epoch
+    eegMat = vertcat(eegCell{:}); % matrix of eeg traces from all tetrodes (rows) in the epoch
 
     % Truncate so windows tile whole dataset
     winPts = winSize*Fs;
     newEnd = nDat-mod(nDat,winPts);
     newT = timeVec(1:newEnd);
     eegMat = eegMat(:,1:newEnd);
-    nWin = newEnd/nWin;
+    nWin = newEnd/winPts;
     xcorrVec = zeros(1,nWin);
     for l=1:nWin
         winEEG = eegMat(:,(l-1)*winPts+1:l*winPts);

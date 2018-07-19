@@ -1,5 +1,5 @@
 function h = addFigureStepper(fig,X,winSize,stepSize)
-% Shirks xlim of a figure to winSize and adds next and prev push buttons to
+% Shrinks xlim of a figure to winSize and adds next and prev push buttons to
 % step thorugh a large dataset. Default stepSize is 1 window, but can be
 % changed. winSize and stepSize are in units of X
 if ~exist('stepSize','var')
