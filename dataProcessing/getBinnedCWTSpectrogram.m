@@ -19,7 +19,7 @@ for k=1:size(windowIdx,1)
 end
 
 % remove frequencies with negative valued power
-[~,maxRmv] = max(sum(specgram<0));
-fRmvIdx = specgram(:,maxRmv)<0;
-f = f(~fRmvIdx);
-specgram = specgram(~fRmvIdx,:);
+%[~,maxRmv] = max(sum(specgram<0));
+%fRmvIdx = specgram(:,maxRmv)<0;
+%f = f(~fRmvIdx);
+%specgram = specgram(~fRmvIdx,:);

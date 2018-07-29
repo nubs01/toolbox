@@ -54,6 +54,12 @@ for k=2:size(epMat,1)
         prevEP(4) = epMat(k,2);
         continue;
     end
+    if prevEP(2)<lim && nextEP(2)<lim && nextEP(1)==prevEP(1)
+        out(epMat(k,1):epMat(k,2)) = prevEP(1);
+        prevEP(2) = prevEP(2)+D(k);
+        prevEP(4) = epMat(k,2);
+        continue;
+    end
     if prevEP(2)<lim
         out(prevEP(3):prevEP(4)) = twoBack(1);
         twoBack(2) = twoBack(2)+prevEP(2);
