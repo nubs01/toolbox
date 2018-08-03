@@ -14,9 +14,14 @@ for k=1:size(patchX,1)
     X = patchX(k,1)*[1 0 0 1];
     X = X+patchX(k,2)*[0 1 1 0];
     Y = [YL(1) YL(1) YL(2) YL(2)];
-    h = patch(X,Y,patchColors(patchVals(k),:),'FaceAlpha',0.3,'EdgeColor','none');
+    h = patch(X,Y,patchColors(patchVals(k),:),'FaceAlpha',.3,'EdgeColor','none');
     out = [out h];
 end
 
 % Set patches to background
-uistack(out,'bottom')
+ph = get(gca,'Children');
+pIdx = arrayfun(@(x) any(out==x),ph);
+pI = find(pIdx);
+lI = find(~pIdx);
+set(gca,'Children',ph([lI;pI]))
+%uistack(out,'bottom')

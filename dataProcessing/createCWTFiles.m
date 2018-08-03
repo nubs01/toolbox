@@ -22,8 +22,8 @@ function createCWTFiles(dataDir,animID,sessionNum,varargin)
         tt = str2double(parsed.tet);
         saveFile = sprintf('%s%scwtspecgram%02i-%02i-%02i.mat',saveDir,animID,sessionNum,ee,tt);
         if exist(saveFile,'file')
-            %fprintf('Spectra file for day %02i epoch %02i tet %02i already exists. Skipping...\n',sessionNum,ee,tt)
-            %continue;
+            fprintf('Spectra file for day %02i epoch %02i tet %02i already exists. Skipping...\n',sessionNum,ee,tt)
+            continue;
         end
         fprintf('Creating spectrogram file for %s day %02i epoch %02i tetrode %02i...\n',animID,sessionNum,ee,tt);
         eeg = load([eegDir eegFiles{k}]);
