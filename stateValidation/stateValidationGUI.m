@@ -20,6 +20,8 @@ function varargout = stateValidationGUI(varargin)
     % bandNames (cellArray) - default {'Delta','Theta',Sigma'}
     % bandFreqs (cell array of [start_freq end_freq]) - default {[1 4],[5 10],[11 14]}
     % displaySize - number of seconds to display in time plots (default 600)
+    % TODO: Change point plotting and pointClick to plot all at once and deal
+    % with functionality via windowButtonUpFcn
 % STATEVALIDATIONGUI MATLAB code for stateValidationGUI.fig
 %      STATEVALIDATIONGUI, by itself, creates a new STATEVALIDATIONGUI or raises the existing
 %      singleton*.
@@ -43,7 +45,7 @@ function varargout = stateValidationGUI(varargin)
 
 % Edit the above text to modify the response to help stateValidationGUI
 
-% Last Modified by GUIDE v2.5 01-Aug-2018 23:11:17
+% Last Modified by GUIDE v2.5 10-Aug-2018 13:01:35
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -99,10 +101,14 @@ function init(inputData,handles,varargin)
                     0 1 0;... %Transition
                     .85 .33 .1]; %Artifact
 
-    displaySize = 600; % Size of time window to display (seconds)
+    displaySize = 300; % Size of time window to display (seconds)
 
+    set(handles.winSize_edit,'String','30')
+    setappdata(handles.figure1,'init_varargin',varargin)
     assignVars(varargin)
 
+    set(handles.transition_push,'ForegroundColor',[0 1 0])
+    set(handles.title_text,'String',sprintf('%s Day %02i Epoch %02i: %s',inputData.animal,inputData.day,inputData.epoch,inputData.epoch_type))
     setappdata(handles.figure1,'stateNames',stateNames)
     setappdata(handles.figure1,'stateColors',stateColors)
     setappdata(handles.figure1,'bandNames',bandNames)
@@ -128,7 +134,7 @@ function init(inputData,handles,varargin)
     set(handles.ep_edit,'String','1')
     tetList = arrayfun(@(x) sprintf('Tet %02i',x),inputData.riptets,'UniformOutput',false);
     set(handles.tet_pop,'String',tetList,'Value',1)
-    set(handles.set_push,'Enable','off')
+    set(handles.set_push,'Visible','off')
     set(handles.winSize_edit,'Enable','off')
     set(handles.break_push,'Enable','on')
     set(handles.change_panel,'Visible','on')
@@ -238,16 +244,15 @@ function break_push_Callback(hObject, eventdata, handles)
     axes(handles.ep_ax)
     hold on
     yl = get(handles.ep_ax,'YLim');
-    ph = plot([x x],yl,'k-','LineWidth',2);
+    ph = plot([xx xx],yl,'k-','LineWidth',2);
     set(ph,'ButtonDownFcn',@(src,event)stateValidationGUI('border_press_Callback',src,event,guidata(src),3))
     setappdata(handles.figure1,'breakLine',ph)
-    setappdata(handles.figure1,'movingLine',ph)
     setappdata(handles.figure1,'breakActive',1)
     set(handles.nav_panel,'Visible','off')
     set(handles.change_panel,'Visible','off')
-    set(handles.set_push,'Enable','on')
+    set(handles.set_push,'Visible','on','Enable','on')
     set(handles.break_push,'Enable','off')
-    set(handles.epoch_panel,'Enable','off')
+    set(handles.epoch_panel,'Visible','off')
 
 
 % --- Executes on button press in set_push.
@@ -259,16 +264,21 @@ function set_push_Callback(hObject, eventdata, handles)
     newX = get(L,'XData');
     newX = newX(1);
     stateMat = getappdata(handles.figure1,'currentStateMat');
-    epEnd = find(stateMat(:,1)<=newX & statemat(:,2)>=newX);
-    SM = [stateMat(1:epEnd,:);newX stateMat(epEnd,2) stateMat(epEnd,2);stateMat(epEnd+1:end,:)];
+    epEnd = find(stateMat(:,1)<=newX & stateMat(:,2)>=newX);
+    if epEnd<size(stateMat,1)
+        SM = [stateMat(1:epEnd,:);newX stateMat(epEnd,2) stateMat(epEnd,3);stateMat(epEnd+1:end,:)];
+    else
+        SM = [stateMat(1:epEnd,:);newX statemat(epEnd,2) stateMat(epEnd,3)];
+    end
     SM(epEnd,2) = newX;
     setappdata(handles.figure1,'currentStateMat',SM)
 
     delete(L)
-    set(handles.set_push,'Enable','off')
+    set(handles.set_push,'Visible','off')
     set(handles.break_push,'Enable','on')
     set(handles.change_panel,'Visible','on')
     setappdata(handles.figure1,'breakActive',0)
+    setappdata(handles.figure1,'breakLine',[])
     set(handles.nav_panel,'Visible','on')
     set(handles.epoch_panel,'Visible','on')
 
@@ -397,16 +407,21 @@ function changeCurrentState(handles,newState)
     idx = getappdata(handles.figure1,'currentIdx');
     stateMat = getappdata(handles.figure1,'currentStateMat');
     stateColors = getappdata(handles.figure1,'stateColors');
-    ph = getappdata(handles.figure1,'pointHandles');
     sh = getappdata(handles.figure1,'patchHandles');
-    set(ph(idx),'MarkerFaceColor',stateColors(newState,:))
     set(sh(idx),'FaceColor',stateColors(newState,:))
     stateMat(idx,3) = newState;
+    stateMat = stitchStates(stateMat);
     setappdata(handles.figure1,'currentStateMat',stateMat);
+    makeWindowLines(handles)
+    plotScatter(handles)
     updateStats(handles)
 
 % Plot scatter plot
 function  plotScatter(handles)
+    ph = getappdata(handles.figure1,'pointHighlight');
+    if ~isempty(ph)
+        delete(ph)
+    end
     inputData = getappdata(handles.figure1,'InputData');
     ph = getappdata(handles.figure1,'pointHandles');
     stateMat = getappdata(handles.figure1,'currentStateMat');
@@ -442,7 +457,7 @@ function  plotScatter(handles)
     end
     scatterX = zeros(size(scatterTime,1),1);
     scatterY = zeros(size(scatterTime,1),1);
-    ph = gobjects(size(scatterTime,1),1);
+    scatterColors = SC(scatterStates,:);
     for k=1:size(scatterTime,1)
         a = xTime>=scatterTime(k,1) & xTime<=scatterTime(k,2);
         b = yTime>=scatterTime(k,1) & yTime<=scatterTime(k,2);
@@ -456,19 +471,18 @@ function  plotScatter(handles)
         else
             scatterY(k) = mean(yVec(b));
         end
-        axes(handles.scatter_ax)
-        hold on
-        p = scatter(handles.scatter_ax,scatterX(k),scatterY(k),15,SC(scatterStates(k),:),'filled');
-        set(p,'MarkerFaceAlpha',.3,'ButtonDownFcn',@(hObject,eventdata)stateValidationGUI('point_click_Callback',hObject,eventdata,guidata(hObject),k))
-        ph(k) = p;
     end
+    axes(handles.scatter_ax)
+    ph = scatter(scatterX,scatterY,15,scatterColors,'filled');
+    set(ph,'MarkerFaceAlpha',.5,'ButtonDownFcn',@(src,event)stateValidationGUI('point_click_Callback',src,event,guidata(src)));
     drawnow;
     % Highlight current point
     currIdx = getappdata(handles.figure1,'currentIdx');
-    if isempty(currIdx)
+    if isempty(currIdx) || currIdx>size(scatterTime,1)
         setappdata(handles.figure1,'currentIdx',1);
     end
     
+    setappdata(handles.figure1,'pointHighlight',[])
     setappdata(handles.figure1,'pointHighlight',[])
     setappdata(handles.figure1,'pointHandles',ph)
     setappdata(handles.figure1,'scatter_x',scatterX)
@@ -523,7 +537,7 @@ function [datVec,datTime] = getDataVector(handles,dat,str)
                 error('Invalid Option')
             end
             datTime = dat.spec_time;
-        end
+    end
 
 
 % Function returns band power 
@@ -538,9 +552,18 @@ function out = getBandVariance(specDat,specFreq,bandFreq)
     
 
 % react to clicking on a point in the scatter plot
-function point_click_Callback(hObject,eventdata,handles,k)
+function point_click_Callback(hObject,eventdata,handles)
     if ~getappdata(handles.figure1,'breakActive')
+        cp = get(handles.scatter_ax,'CurrentPoint');
+        cx = cp(1,1);
+        cy = cp(1,2);
+        xx = getappdata(handles.figure1,'scatter_x');
+        yy = getappdata(handles.figure1,'scatter_y');
+        dists = arrayfun(@(x,y) sqrt((x-cx)^2+(y-cy)^2),xx,yy);
+        [~,k] = min(dists);
+        fprintf('Clicked Point %i at [%0.2f,%0.2f]\n',k,cx,cy)
         setappdata(handles.figure1,'currentIdx',k)
+        setappdata(handles.figure1,'pointClicked',1)
         setCurrentPoint(handles)
     end
     
@@ -548,17 +571,23 @@ function setCurrentPoint(handles)
     idx = getappdata(handles.figure1,'currentIdx');
     ph = getappdata(handles.figure1,'pointHandles');
     oph = getappdata(handles.figure1,'pointHighlight');
+    SC = getappdata(handles.figure1,'stateColors');
+    scatterStates = getappdata(handles.figure1,'scatter_states');
+    scatterX = getappdata(handles.figure1,'scatter_x');
+    scatterY = getappdata(handles.figure1,'scatter_y');
     if ~isempty(oph) && ishandle(oph)
-        set(oph,'MarkerFaceAlpha',0.3,'SizeData',15,'MarkerEdgeColor','none')
+        delete(oph)
     end
-    set(ph(idx),'MarkerFaceAlpha',1,'SizeData',45,'MarkerEdgeColor',[.49 .18 .56],'LineWidth',1)
-    setappdata(handles.figure1,'pointHighlight',ph(idx))
+    axes(handles.scatter_ax)
+    hold on
+    oph = plot(scatterX(idx),scatterY(idx),'k.','MarkerSize',25,'Color',SC(scatterStates(idx),:));
+    setappdata(handles.figure1,'pointHighlight',oph)
     set(handles.ep_edit,'String',num2str(idx))
     setCurrentWindow(handles)
 
 % react to clicking a line
 function border_press_Callback(hObject,eventdata,handles,edgeNum)
-    if getappdata(handles.figure1,'breakActive') & edgeNum~=3
+    if getappdata(handles.figure1,'breakActive') && edgeNum~=3
         return;
     end
     setappdata(handles.figure1,'movingLine',hObject)
@@ -576,7 +605,7 @@ function updateStats(handles)
         epNum(k) = sum(idx);
     end
     A = cellstr(char(stateNames'));
-    B = cellstr(char(num2str(stateTimes)));
+    B = cellstr(char(num2str(fix(stateTimes))));
     C = cellstr(char(num2str(epNum)));
     statStr = strcat({' : '},B,{' s ('},C,{' ep)'});
     statStr = [char(A) char(statStr)];
@@ -585,6 +614,7 @@ function updateStats(handles)
 
 % update movement plot
 function plotMovementData(handles)
+    fprintf('Plotting Movement Data...\n')
     dat = getappdata(handles.figure1,'InputData');
     ph = getappdata(handles.figure1,'movement_handles');
     delete(ph)
@@ -594,12 +624,13 @@ function plotMovementData(handles)
     emgT = dat.emg_time;
     ph = gobjects(2,1);
     axes(handles.ep_ax)
-    ph(1) = plot(velT,vel,'b-','LineWidth',2);
+    yyaxis left
+    ph(1) = plot(velT,vel,'LineWidth',2);
     ylim([-1 30])
     ylabel('Velocity (cm/s)')
     ylabel('Time (s)')
     yyaxis right
-    ph(2) = plot(emgT,emg,'r-','LineWidth',2);
+    ph(2) = plot(emgT,emg,'LineWidth',2);
     ylabel('EMG Amplitude (Z)')
     ylim([-2 7])
     yyaxis left
@@ -607,6 +638,7 @@ function plotMovementData(handles)
 
 % update state coloring
 function updateStateColoring(handles)
+    fprintf('Plotting State Patches...\n')
     patchHandles = getappdata(handles.figure1,'patchHandles');
     if ~isempty(patchHandles)
         delete(patchHandles)
@@ -620,6 +652,7 @@ function updateStateColoring(handles)
 
 % Plot/Update CWT pspectrogram
 function plotSpectrogram(handles)
+    fprintf('Plotting Spectrogram...\n')
     dat = getappdata(handles.figure1,'InputData');
     tetIdx = get(handles.tet_pop,'Value');
     S = dat.specgram{tetIdx};
@@ -644,23 +677,25 @@ function plotSpectrogram(handles)
 
 % update window edges
 function makeWindowLines(handles)
+    fprintf('Plotting Window Lines...\n')
+    set(handles.figure1,'pointer','watch')
     sT = getappdata(handles.figure1,'scatter_time');
     ph = getappdata(handles.figure1,'lightEdges');
     if ~isempty(ph)
         delete(ph);
+        drawnow;
     end
-    ph = gobjects(size(sT,1)-1,2);
+    ph = gobjects(1,2);
     ylA = get(handles.ep_ax,'YLim');
     ylB = get(handles.spec_ax,'YLim');
-    for k=1:size(sT,1)-1
-        axes(handles.ep_ax)
-        hold on
-        ph(k,1) = plot([1 1]*sT(k,2),ylA,'k:','LineWidth',1);
-        axes(handles.spec_ax)
-        hold on
-        ph(k,2) = plot([1 1]*sT(k,2),ylB,'k:','LineWidth',1);
-    end
+    axes(handles.ep_ax)
+    hold on
+    ph(1) = plot(sT(1:end-1,2),ones(size(sT,1)-1,1)*ylA(1),'k^','LineWidth',2);
+    axes(handles.spec_ax)
+    hold on
+    ph(2) = plot(sT(1:end-1,2),ones(size(sT,1)-1,1)*ylB(1),'k^','LineWidth',2);
     setappdata(handles.figure1,'lightEdges',ph);
+    set(handles.figure1,'pointer','arrow')
 
 
 % Move plots to current window
@@ -668,10 +703,15 @@ function setCurrentWindow(handles)
     tMat = getappdata(handles.figure1,'scatter_time');
     idx = getappdata(handles.figure1,'currentIdx');
     dispSize = getappdata(handles.figure1,'displaySize');
-    xlim = mean(tMat(idx,:)) + [-.5 .5]*dispSize;
+    if abs(diff(tMat(idx,:)))>=dispSize
+        xlim = tMat(idx,:) + [-60 60]; % show 1  minute on each side of episode
+    else
+        xlim = mean(tMat(idx,:)) + [-.5 .5]*dispSize;
+    end
     set(handles.ep_ax,'XLim',xlim)
     set(handles.spec_ax,'XLim',xlim)
-    % TODO: Make moving thick lines for adjusting episodes
+
+    % Make moving thick lines for adjusting episodes
     eh = getappdata(handles.figure1,'episodeEdgeHandles');
     if ~isempty(eh)
         delete(eh)
@@ -681,8 +721,13 @@ function setCurrentWindow(handles)
         yl = get(handles.ep_ax,'YLim');
         axes(handles.ep_ax)
         hold on
-        ph(1) = plot([1 1]*tMat(idx,1),yl,'k-','LineWidth',2,'ButtonDownFcn',@(src,event)stateValidationGUI('border_press_Callback',src,event,guidata(src),1))
-        ph(2) = plot([1 1]*tMat(idx,2),yl,'k-','LineWidth',2,'ButtonDownFcn',@(src,event)stateValidationGUI('border_press_Callback',src,event,guidata(src),2))
+        ph(1) = plot([1 1]*tMat(idx,1),yl,'k-','LineWidth',2,'ButtonDownFcn',@(src,event)stateValidationGUI('border_press_Callback',src,event,guidata(src),1));
+        ph(2) = plot([1 1]*tMat(idx,2),yl,'k-','LineWidth',2,'ButtonDownFcn',@(src,event)stateValidationGUI('border_press_Callback',src,event,guidata(src),2));
+    else
+        yl = get(handles.ep_ax,'Ylim');
+        axes(handles.ep_ax)
+        hold on
+        ph = plot(tMat(idx,:),[1 1]*yl(1),'r^','LineWidth',3);
     end
     setappdata(handles.figure1,'episodeEdgeHandles',ph)
 
@@ -716,7 +761,8 @@ epoStruct = rD.epochs;
 epoLabels = cellfun(@(x,y) sprintf('%02i: %s',x,y),num2cell([epoStruct.epoch]),{epoStruct.epoch_type},'UniformOutput',false);
 tmp3 = ListSelectGUI(epoLabels,'Choose Epoch');
 %TODO: Add load functionality
-
+dat = getStateValidationData(anim.animal,tmp2,tmp3);
+init(dat,handles,getappdata(handles.figure1,'init_varargin'))
 
 function winSize_edit_Callback(hObject, eventdata, handles)
     % hObject    handle to winSize_edit (see GCBO)
@@ -729,7 +775,9 @@ function winSize_edit_Callback(hObject, eventdata, handles)
         set(hObject,'String',num2str(getappdata(handles.figure1,'winSize')))
         return;
     end
-    setappdata(handle.figure1,'winSize',winSize)
+    setappdata(handles.figure1,'winSize',winSize)
+    makeWindowLines(handles)
+    plotScatter(handles)
 
 
 % --- Executes during object creation, after setting all properties.
@@ -761,6 +809,8 @@ function episode_radio_Callback(hObject, eventdata, handles)
     setappdata(handles.figure1,'currentIdx',tmp)
     set(handles.ep_edit,'String',num2str(tmp))
     set(handles.total_text,'String',['/  ' num2str(size(stateMat,1))])
+    makeWindowLines(handles)
+    plotScatter(handles)
 
 
 
@@ -785,8 +835,8 @@ function window_radio_Callback(hObject, eventdata, handles)
     set(handles.ep_edit,'String',num2str(tmp));
     set(handles.total_text,'String',['/  ' num2str(size(scatterTime,1))])
 
+    makeWindowLines(handles)
     plotScatter(handles)
-    setCurrentWindow(handles)
 
 
 
@@ -820,6 +870,11 @@ function figure1_WindowButtonUpFcn(hObject, eventdata, handles)
     % handles    structure with handles and user data (see GUIDATA)
     N = getappdata(handles.figure1,'movingLineNum');
     L = getappdata(handles.figure1,'movingLine');
+    PC = getappdata(handles.figure1,'pointClicked');
+    if PC
+        setappdata(handles.figure1,'pointClicked',0)
+        return;
+    end
     if isempty(L) || get(handles.episode_radio,'Value')~=1
         return;
     end
@@ -836,7 +891,7 @@ function figure1_WindowButtonUpFcn(hObject, eventdata, handles)
         end
     elseif N==2
         stateMat(epEnd,1) = newX;
-        stateMat(idx,1) = newX;
+        stateMat(idx,2) = newX;
         if epEnd-idx>1
             stateMat(idx+1:epEnd-1,:) = [];
         end
@@ -844,10 +899,35 @@ function figure1_WindowButtonUpFcn(hObject, eventdata, handles)
         setappdata(handles.figure1,'movingLine',[])
         return;
     end
+    stateMat = stitchStates(stateMat);
     setappdata(handles.figure1,'currentStateMat',stateMat)
     setappdata(handles.figure1,'movingLine',[])
     drawnow;
     updateStateColoring(handles)
     plotScatter(handles)
     makeWindowLines(handles)
-    updateStats(handles)    
+    updateStats(handles)
+
+
+% --- Executes on button press in transition_push.
+function transition_push_Callback(hObject, eventdata, handles)
+    % hObject    handle to transition_push (see GCBO)
+    % eventdata  reserved - to be defined in a future version of MATLAB
+    % handles    structure with handles and user data (see GUIDATA)
+    newState = find(strcmpi(getappdata(handles.figure1,'stateNames'),'Transition'));
+    changeCurrentState(handles,newState)
+
+
+function stateMat = stitchStates(stateMat)
+    idx = find(stateMat(1:end-1,2)==stateMat(2:end,1) & stateMat(1:end-1,3)==stateMat(2:end,3));
+    SM = stateMat;
+    for k=numel(idx):-1:1
+        SM(idx(k),2) = SM(idx(k)+1,2);
+        SM(idx(k)+1,:) = [];
+    end
+    stateMat = SM;
+    %setappdata(handles.figure1,'currentStateMat',stateMat)
+    %updateStateColoring(handles)
+    %plotScatter(handles)
+    %makeWindowLines(handles)
+    %updateStats(handles)

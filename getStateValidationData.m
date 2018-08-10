@@ -129,8 +129,9 @@ function out = getStateValidationData(animID,sessionNum,epochNum,varargin)
         stateMat = tmpSM;
     end
     % Mark artifacts
-    artIdx = getOverlapIndices(stateMat,artTimes);
-    stateMat(artIdx,3)= stateIdx('Artifact');
+    %artIdx = getOverlapIndices(stateMat,artTimes);
+    %stateMat(artIdx,3)= stateIdx('Artifact');
+    stateMat = fillBlanksInStateMat(stateMat,emg.starttime,emg.endtime,stateIdx('Transition'));
 
     % Get Riptet spectrograms
     specgrams = cell(1,numel(riptets));
