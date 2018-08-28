@@ -64,7 +64,10 @@ function out = getStateValidationData(animID,sessionNum,epochNum,varargin)
     specFiles = arrayfun(@(x) sprintf('%sSpectrograms%s%scwtspecgram%02i-%02i-%02i.mat',dataDir,filesep,animID,sessionNum,epochNum,x),riptets,'UniformOutput',false);
     emgFile = sprintf('%sEMG%s%semg%02i-%02i-%02i.mat',dataDir,filesep,animID,sessionNum,epochNum,emgNum);
     artFile = sprintf('%sArtifacts%s%sartifacts%02i-%02i.mat',dataDir,filesep,animID,sessionNum,epochNum);
-    stateFile = sprintf('%s%sstates%02i.mat',dataDir,animID,sessionNum);
+    stateFile = sprintf('%s%sstates%02i.mat',[dataDir 'SleepStates' filesep],animID,sessionNum);
+    if ~exist(stateFile,'file')
+        stateFile = sprintf('%s%sstates%02i.mat',dataDir,animID,sessionNum);
+    end
     
     fprintf('   - Getting Pos Data...\n')
     pos = load(posFile);
@@ -95,43 +98,43 @@ function out = getStateValidationData(animID,sessionNum,epochNum,varargin)
         fprintf('   - Getting existing State Data...\n')
         states = load(stateFile);
         states = states.states{sessionNum}{epochNum};
-        % renumber to match stateNames numbering used in GUI & to incorporate artifacts
-        tmpSN = {states.states.state};
-        mapArr = zeros(numel(tmpSN));
-        for k=1:numel(tmpSN)
-            switch tmpSN{k}
-                case {'sleeping','NREM'}
-                    mapArr(k) = stateIdx('NREM');
-                case {'resting','Rest'}
-                    mapArr(k) = stateIdx('Rest');
-                case {'moving','Active'}
-                    mapArr(k) = stateIdx('Active');
-                case 'REM'
-                    mapArr(k) = stateIdx('REM');
-                case 'Transition'
-                   mapArr(k) = stateIdx('Transition');
-                case 'Artifact'
-                   mapArr(k) = stateIdx('Artifact');
-            end
-        end
-        stateMat = states.state_mat;
-        tmpSM = stateMat;
-        tmp = stateMat(:,3)==0;
-        tmpSM(tmp,3) = stateIdx('Transition');
-        tmpSM(~tmp,3) = mapArr(stateMat(~tmp,3));
-        stateMat = tmpSM;
     else
         % TODO: This is temporary until better automated state scoring is
         % made
         fprintf('   - Creating new State Data...\n')
-        states = getSleepWakeStates(emg,pos);
-        stateMat = states.state_mat;
-        tmpSM = stateMat;
-        tmpSM(stateMat(:,3)==0,3) = stateIdx('Transition');
-        tmpSM(stateMat(:,3)==1,3) = stateIdx('NREM');
-        tmpSM(stateMat(:,3)==2,3) = stateIdx('Active');
-        stateMat = tmpSM;
+        states = scoreStates(animID,dataDir,sessionNum);
+        states = states{sessionNum}{epochNum};
     end
+    % renumber to match stateNames numbering used in GUI & to incorporate artifacts
+    if isfield(states,'states')
+        % Backwards compatibility
+        tmpSN = {states.states.state};
+    elseif isfield(states,'state_names')
+        tmpSN = strsplit(states.state_names);
+    end
+    mapArr = zeros(numel(tmpSN));
+    for k=1:numel(tmpSN)
+        switch lower(tmpSN{k})
+            case {'sleeping','nrem'}
+                mapArr(k) = stateIdx('nrem');
+            case {'resting','rest'}
+                mapArr(k) = stateIdx('rest');
+            case {'moving','active','wake'}
+                mapArr(k) = stateIdx('active');
+            case 'rem'
+                mapArr(k) = stateIdx('rem');
+            case 'transition'
+               mapArr(k) = stateIdx('transition');
+            case 'artifact'
+               mapArr(k) = stateIdx('artifact');
+        end
+    end
+    stateMat = states.state_mat;
+    tmpSM = stateMat;
+    tmp = stateMat(:,3)==0;
+    tmpSM(tmp,3) = stateIdx('Transition');
+    tmpSM(~tmp,3) = mapArr(stateMat(~tmp,3));
+
     % Mark artifacts
     %artIdx = getOverlapIndices(stateMat,artTimes);
     %stateMat(artIdx,3)= stateIdx('Artifact');
