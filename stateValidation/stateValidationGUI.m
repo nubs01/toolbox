@@ -656,10 +656,11 @@ function plotSpectrogram(handles)
     dat = getappdata(handles.figure1,'InputData');
     tetIdx = get(handles.tet_pop,'Value');
     S = dat.specgram{tetIdx};
-    [~,maxZero] = max(sum(S<0));
-    specFreq = dat.spec_freq;
-    specFreq = specFreq(S(:,maxZero)>0);
-    S = S(S(:,maxZero)>0,:);
+    %[~,maxZero] = max(sum(S<0));
+    %specFreq = dat.spec_freq;
+    %specFreq = specFreq(S(:,maxZero)>0);
+    %S = S(S(:,maxZero)>0,:);
+    S = abs(S);
     lPSD = 10*log10(S);
     zlPSD = zscore(lPSD,0,2);
     fzlPSD = imgaussfilt(zlPSD,2);

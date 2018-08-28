@@ -80,8 +80,10 @@ function out = getStateValidationData(animID,sessionNum,epochNum,varargin)
         tmpT = emg.starttime:1/emg.samprate:emg.endtime;
         [emgVec,emgTime] = processRawEMG(emg.data,tmpT,emg.samprate);
     else
-        emgTime = velTime;
-        emgVec = zeros(size(emgTime));
+        emgFile = sprintf('%sEMG%s%semgfromlfp%02i-%02i.mat',dataDir,filesep,animID,sessionNum,epochNum);
+        emg = load(emgFile);
+        emg = emg.emgfromlfp{sessionNum}{epochNum};
+        [emgVec,emgTime] = processRawEMG(emg.data,emg.time,emg.samprate,'fromLFP',true);
     end
 
     fprintf('   - Loading Artifacts...\n')
@@ -119,6 +121,8 @@ function out = getStateValidationData(animID,sessionNum,epochNum,varargin)
         tmpSM(~tmp,3) = mapArr(stateMat(~tmp,3));
         stateMat = tmpSM;
     else
+        % TODO: This is temporary until better automated state scoring is
+        % made
         fprintf('   - Creating new State Data...\n')
         states = getSleepWakeStates(emg,pos);
         stateMat = states.state_mat;
