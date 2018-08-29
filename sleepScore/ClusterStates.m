@@ -8,7 +8,7 @@ function sleepStates = ClusterStates(scoreData,varargin)
     minREMinWsecs = 6;
     minWinREMsecs = 6;
     minWnexttoREMsecs = 6;
-    minWinParams = v2struct(minSWsec,minWAKEsecs,minREMsecs,...
+    minWinParams = v2struct(minSWsecs,minWAKEsecs,minREMsecs,...
                             minREMinWsecs,minWinREMsecs,minWnexttoREMsecs);
     emgSmoothFactor = 10;
 
@@ -37,7 +37,7 @@ function sleepStates = ClusterStates(scoreData,varargin)
     recTimeRange = emg.timerange;
     sEMG = smooth(EMGdat,EMGfs*emgSmoothFactor);
     nEMG = (sEMG-min(sEMG))./max(sEMG-min(sEMG));
-    newEMG = interp1(EMGtime,nEMG,t_fft,'linear','extrap');
+    newEMG = interp1(EMGtime,nEMG,t_fft,'linear','extrap')';
 
     [swHist,swHistBins,swPkLocs,swThresh] = getHistThresh(bbSW);
     bbSW(badtimes) = swHist(swPkLocs(1)); % Set broadbandSlowWave transients to wake
@@ -58,7 +58,7 @@ function sleepStates = ClusterStates(scoreData,varargin)
                               thHist,thHistBins,thPkLocs,thThresh);
 
     % make single state vector: WAKE=1, NREM=2 and REM=3
-    IDX = MOVtime + 2*NREMtimes + 3*REMtimes;
+    IDX = MOVtimes + 2*NREMtimes + 3*REMtimes;
 
     % Change short NREM to WAKE
     IDX = convertShortStates(IDX,2,1,minSWsecs*specFs);
@@ -118,11 +118,12 @@ function sleepStates = ClusterStates(scoreData,varargin)
     IDX = convertShortStates(IDX,1,2,minWAKEsecs*specFs);
 
     % Change short NREM into WAKE (yes, again!)
-    IDX = convertShortStates(IDX,2,1,minNREMsecs*specFs);
+    IDX = convertShortStates(IDX,2,1,minSWsecs*specFs);
     INT = IDXtoINT(IDX,3);
 
     % make time vector for IDX, convert INT to time in seconds
     idxTime = t_fft + recTimeRange(1);
+    sleepStates.time_range = recTimeRange;
     sleepStates.WAKEints = idxTime(INT{1});
     sleepStates.NREMints = idxTime(INT{2});
     sleepStates.REMints = idxTime(INT{3});

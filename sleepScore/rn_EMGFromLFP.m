@@ -28,7 +28,8 @@ function out = rn_EMGFromLFP(animID,dataDir,sessionNum,varargin)
     emgDir = [dataDir filesep 'EMG' filesep];
     saveFile = @(x) sprintf('%s%semgfromlfp%02i-%02i.mat',emgDir,animID,sessionNum,x);
     eegFile = @(x,y) sprintf('%s%seeg%02i-%02i-%02i.mat',eegDir,animID,sessionNum,x,y);
-    out = cell(numel(epochs),1);
+    out = cell(1,sessionNum);
+    out{sessionNum} = cell(1,numel(epochs));
     for ee=epochs
         if exist(saveFile(ee),'file') && ~overwrite
             fprintf('emffromlfp file already exists for %s Day %02i Epoch %02i. Skipping...\n',animID,sessionNum,ee)

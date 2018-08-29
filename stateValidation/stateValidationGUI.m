@@ -93,7 +93,7 @@ function init(inputData,handles,varargin)
     setappdata(handles.figure1,'InputData',inputData)
     stateNames = {'REM','NREM','Rest','Active','Transition','Artifact'};
     bandFreqs = {[1 4],[5 10],[11 14]};
-    bandNames = {'Theta','Delta','Sigma'};
+    bandNames = {'Delta','Theta','Sigma'};
     stateColors = [0 1 1;... % REM
                     0 0 1;... %NREM
                     1 0 1;... %Rest
@@ -628,7 +628,7 @@ function plotMovementData(handles)
     ph(1) = plot(velT,vel,'LineWidth',2);
     ylim([-1 30])
     ylabel('Velocity (cm/s)')
-    ylabel('Time (s)')
+    xlabel('Time (s)')
     yyaxis right
     ph(2) = plot(emgT,emg,'LineWidth',2);
     ylabel('EMG Amplitude (Z)')
@@ -665,7 +665,7 @@ function plotSpectrogram(handles)
     zlPSD = zscore(lPSD,0,2);
     fzlPSD = imgaussfilt(zlPSD,2);
     axes(handles.spec_ax)
-    imagesc(dat.spec_time,specFreq,fzlPSD)
+    imagesc(dat.spec_time,dat.spec_freq,fzlPSD)
     set(gca,'ydir','normal')
     if ~isempty(which('magma'))
         colormap(magma)

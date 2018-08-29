@@ -5,9 +5,11 @@ function episodes = IDStateEpisodes(ints,maxIntDur,minStateDur)
     ints = ints(sort_idx,:); % Sort by ending values
     gaps = ints(2:end,1) - ints(1:end-1,2);
     validGaps = find(gaps<=maxIntDur);
-    ints(validGaps,2) = ints(validGaps+1,2);
-    ints(validGaps,1) = min(ints(validGaps,1),ints(validGaps+1,1));
-    ints(validGaps+1,:) = [];
+    for k=numel(validGaps):-1:1
+        ints(validGaps(k),2) = ints(validGaps(k)+1,2);
+        ints(validGaps(k),1) = min(ints(validGaps(k),1),ints(validGaps(k)+1,1));
+        ints(validGaps(k)+1,:) = [];
+    end
 
     % only keep states longer than minStateDur
     validInts = diff(ints,1,2)>=minStateDur;

@@ -44,7 +44,15 @@ function out = gatherBuzsakiStateScoringData(animID,sessionNum,epochNum,varargin
     allTets = [tetInfo.tetrode];
     valididx = strcmpi({tetInfo.target},'CA1') & ~[tetInfo.exclude] & [tetInfo.lfp_channel]~=0;
     validTets = allTets(valididx);
-    [swDat,thDat] = pickSWTHlfp(animID,dataDir,sessionNum,epochNum,'validTets',validTets,'saveFigs',true);
+    swthFile = sprintf('%sBestSWTHdat%s%sswth%02i-%02i.mat',dataDir,filesep,animID,sessionNum,epochNum);
+    if exist(swthFile,'file')
+        swth = load(swthFile);
+        swth = swth.swth{sessionNum}{epochNum};
+        swDat = swth.swDat;
+        thDat = swth.thDat;
+    else
+        [swDat,thDat] = pickSWTHlfp(animID,dataDir,sessionNum,epochNum,'validTets',validTets,'saveFigs',true);
+    end
     out.swDat = swDat;
     out.thDat = thDat;
 

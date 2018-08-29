@@ -31,7 +31,19 @@ function [swDat,thDat] = pickSWTHlfp(animID,dataDir,sessionNum,epochNum,varargin
     NotchTheta  = false;
 
     assignVars(varargin)
-
+    saveDir = [dataDir filesep 'BestSWTHdat' filesep];
+    saveFile = sprintf('%s%sswth%02i-%02i.mat',saveDir,animID,sessionNum,epochNum);
+    if ~exist(saveDir,'dir')
+        mkdir(saveDir)
+    end
+    if exist(saveFile,'file')
+        q = input('Best SW-TH LFPs already found. Overwrite? (Y/N):  ','s');
+        if strcmpi(q,'n')
+            swDat = [];
+            thDat = [];
+            return;
+        end
+    end
     if isempty(validTets)
         % TODO: set to all tets in session & epoch from LFP files
     end
@@ -158,6 +170,11 @@ function [swDat,thDat] = pickSWTHlfp(animID,dataDir,sessionNum,epochNum,varargin
     thDat = struct('tetrode',bestTHtet,'lfp_data',theeg','lfp_time',thTime,'samprate',resampleFs,...
                    'spec_freqs',thFFTfreqs,'specgram',thSpec,'thratio',thRatio','thratio_hist',thHist',...
                    'histbins',histbins,'spec_time',thSpecTime,'mean_spec',THmeanspec(:,bestTHidx)');
+    swth = cell(1,sessionNum);
+    swth{sessionNum} = cell(1,epochNum);
+    swth{sessionNum}{epochNum}.swDat = swDat;
+    swth{sessionNum}{epochNum}.thDat = thDat;
+    save(saveFile,'swth')
     % Make Plots
 
     if saveFigs

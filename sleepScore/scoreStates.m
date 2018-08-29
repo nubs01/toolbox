@@ -58,8 +58,9 @@ function out = scoreStates(animID,dataDir,sessionNum,varargin)
         scoreData = gatherBuzsakiStateScoringData(animID,sessionNum,epochNum);
 
         % Get sleep states from EMG, Slow-Wave, & Theta LFP channels
+        fprintf('    - Clustering States...\n')
         sleepStates = ClusterStates(scoreData,'minWinParams',minWinParams);
-
+        fprintf('    - Converting to Episodes...\n')
         SleepStateEpisodes = StatesToEpisodes(sleepStates,'epWinParams',epWinParams);
 
         % Save data

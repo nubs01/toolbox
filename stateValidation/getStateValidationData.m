@@ -106,13 +106,13 @@ function out = getStateValidationData(animID,sessionNum,epochNum,varargin)
         states = states{sessionNum}{epochNum};
     end
     % renumber to match stateNames numbering used in GUI & to incorporate artifacts
-    if isfield(states,'states')
+    if isfield(states,'state_names')
+        tmpSN = states.state_names
+    elseif isfield(states,'states')
         % Backwards compatibility
         tmpSN = {states.states.state};
-    elseif isfield(states,'state_names')
-        tmpSN = strsplit(states.state_names);
     end
-    mapArr = zeros(numel(tmpSN));
+    mapArr = zeros(1,numel(tmpSN));
     for k=1:numel(tmpSN)
         switch lower(tmpSN{k})
             case {'sleeping','nrem'}
@@ -128,12 +128,14 @@ function out = getStateValidationData(animID,sessionNum,epochNum,varargin)
             case 'artifact'
                mapArr(k) = stateIdx('artifact');
         end
+        fprintf('State %s was labelled as %i and is now %i\n',tmpSN{k},k,mapArr(k))
     end
     stateMat = states.state_mat;
     tmpSM = stateMat;
     tmp = stateMat(:,3)==0;
     tmpSM(tmp,3) = stateIdx('Transition');
     tmpSM(~tmp,3) = mapArr(stateMat(~tmp,3));
+    stateMat = tmpSM;
 
     % Mark artifacts
     %artIdx = getOverlapIndices(stateMat,artTimes);
