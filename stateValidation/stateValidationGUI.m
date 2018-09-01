@@ -317,7 +317,8 @@ function ep_edit_Callback(hObject, eventdata, handles)
         return;
     end
     setappdata(handles.figure1,'currentIdx',epNum)
-    setCurrentWindow(handles)
+    plotScatter(handles)
+    makeWindowLines(handles)
 
 
 % --- Executes during object creation, after setting all properties.
@@ -656,10 +657,6 @@ function plotSpectrogram(handles)
     dat = getappdata(handles.figure1,'InputData');
     tetIdx = get(handles.tet_pop,'Value');
     S = dat.specgram{tetIdx};
-    %[~,maxZero] = max(sum(S<0));
-    %specFreq = dat.spec_freq;
-    %specFreq = specFreq(S(:,maxZero)>0);
-    %S = S(S(:,maxZero)>0,:);
     S = abs(S);
     lPSD = 10*log10(S);
     zlPSD = zscore(lPSD,0,2);
@@ -672,6 +669,13 @@ function plotSpectrogram(handles)
     else
         colormap(jet)
     end
+    hold on
+    bandNames = getappdata(handles.figure1,'bandNames');
+    bandFreqs = getappdata(handles.figure1,'bandFreqs');
+    thIdx = find(strcmpi(bandNames,'theta'));
+    thF = bandFreqs{thIdx};
+    plot(dat.spec_time([1 end]),[1 1]*thF(1),'k','LineWidth',2)
+    plot(dat.spec_time([1 end]),[1 1]*thF(2),'k','LineWidth',2)
     xlabel('Time (s)')
     ylabel('Frequency (Hz)')
 

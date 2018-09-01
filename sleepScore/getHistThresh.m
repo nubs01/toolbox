@@ -1,5 +1,5 @@
 function [outHist,histbins,PkLocs,Thresh] = getHistThresh(datVec,varargin)
-    numbins = 12;
+    numbins = 15;
     nPks = 1;
     maxBins = inf;
     assignVars(varargin)

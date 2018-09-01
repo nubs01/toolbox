@@ -46,6 +46,9 @@ function [swDat,thDat] = pickSWTHlfp(animID,dataDir,sessionNum,epochNum,varargin
     end
     if isempty(validTets)
         % TODO: set to all tets in session & epoch from LFP files
+        recDat = getRecMetadata(animID,sessionNum);
+        tetInfo = recDat.tet_info;
+        validTets = find(~[tetInfo.emg] & ~[tetInfo.exclude] & ~[tetInfo.ref]);
     end
     validTets = setdiff(validTets,rejectTets);
     nTets = numel(validTets);

@@ -37,7 +37,7 @@ function sleepStates = ClusterStates(scoreData,varargin)
     recTimeRange = emg.timerange;
     sEMG = smooth(EMGdat,EMGfs*emgSmoothFactor);
     nEMG = (sEMG-min(sEMG))./max(sEMG-min(sEMG));
-    newEMG = interp1(EMGtime,nEMG,t_fft,'linear','extrap')';
+    newEMG = interp1(EMGtime,nEMG,t_fft+recTimeRange(1),'linear','extrap')';
 
     [swHist,swHistBins,swPkLocs,swThresh] = getHistThresh(bbSW);
     bbSW(badtimes) = swHist(swPkLocs(1)); % Set broadbandSlowWave transients to wake
@@ -65,6 +65,11 @@ function sleepStates = ClusterStates(scoreData,varargin)
     
     % Change short WAKE next to REM into REM
     INT = IDXtoINT(IDX,3);
+
+    Rints = INT{3};
+    disp('Initial REM intervals:')
+    disp(Rints)
+
     Wint = INT{1};
     Wlens = diff(Wint,1,2);
     trans = diff(IDX);
@@ -78,6 +83,9 @@ function sleepStates = ClusterStates(scoreData,varargin)
     INT{3} = [INT{3};Wint(shortIdx,:)];
     INT{1}(shortIdx,:) = [];
     IDX = INTtoIDX(INT,numel(IDX));
+    Rints = INT{3};
+    disp('After Wake Conversion 1:')
+    disp(Rints)
 
     % Change short WAKE between REM into REM
     INT = IDXtoINT(IDX,3);
@@ -94,6 +102,9 @@ function sleepStates = ClusterStates(scoreData,varargin)
     INT{3} = [INT{3};Wint(shortIdx,:)];
     INT{1}(shortIdx,:) = [];
     IDX = INTtoIDX(INT,numel(IDX));
+    Rints = INT{3};
+    disp('After Wake Conversion 2:')
+    disp(Rints)
 
     % Change short REM between WAKE into WAKE
     INT = IDXtoINT(IDX,3);
@@ -110,9 +121,16 @@ function sleepStates = ClusterStates(scoreData,varargin)
     INT{1} = [INT{1};Rints(shortIdx,:)];
     INT{3}(shortIdx,:) = [];
     IDX = INTtoIDX(INT,numel(IDX));
+    Rints = INT{3};
+    disp('After short REM conversion 1:')
+    disp(Rints)
 
     % Change all short REM into WAKE
     IDX = convertShortStates(IDX,3,1,minREMsecs*specFs);
+    INT = IDXtoINT(IDX,3);
+    Rints = INT{3};
+    disp('After short REM conversion 1:')
+    disp(Rints)
 
     % Change short WAKE into NREM
     IDX = convertShortStates(IDX,1,2,minWAKEsecs*specFs);
@@ -130,6 +148,8 @@ function sleepStates = ClusterStates(scoreData,varargin)
     sleepStates.histandthreshs = histandthreshs;
     sleepStates.minWinParams = minWinParams;
     sleepStates.detector = 'ClusterStates.m (Buzsaki)';
+    sleepStates.swTet = swDat.tetrode;
+    sleepStates.thTet = thDat.tetrode;
 
 
 

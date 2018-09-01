@@ -56,6 +56,9 @@ function SleepStateEpisodes = StatesToEpisodes(sleepStates,varargin)
     SleepStateEpisodes.detection_params = epWinParams;
     SleepStateEpisodes.decetion_date = datetime('Now');
     SleepStateEpisodes.detector = sleepStates.detector;
+    SleepStateEpisodes.histandthreshs = sleepStates.histandthreshs;
+    SleepStateEpisodes.swTet = sleepStates.swTet;
+    SleepStateEpisodes.thTet = sleepStates.thTet;
     
     stateMat = [];
     % to create state mat first split NREM episodes around wake intervals
@@ -81,13 +84,12 @@ function out = splitAroundEpisodes(toSplit,breakEPs,minDur)
     for k=cutIdx'
         thisInt = toSplit(k,:);
         cutInside = find(breakEPs(:,1)>=thisInt(1) & breakEPs(:,1)<=thisInt(2));
-        orig(k,:) = [];
-
         for l = cutInside'
             newStates = [newStates;thisInt(1) breakEPs(l,1)];
             thisInt = [breakEPs(l,2) thisInt(2)];
         end
     end
+    orig(cutIdx,:) = [];
     newStates = [newStates;thisInt];
     out = [orig;newStates];
     out = sortrows(out);
