@@ -20,8 +20,6 @@ function varargout = stateValidationGUI(varargin)
     % bandNames (cellArray) - default {'Delta','Theta',Sigma'}
     % bandFreqs (cell array of [start_freq end_freq]) - default {[1 4],[5 10],[11 14]}
     % displaySize - number of seconds to display in time plots (default 600)
-    % TODO: Change point plotting and pointClick to plot all at once and deal
-    % with functionality via windowButtonUpFcn
 % STATEVALIDATIONGUI MATLAB code for stateValidationGUI.fig
 %      STATEVALIDATIONGUI, by itself, creates a new STATEVALIDATIONGUI or raises the existing
 %      singleton*.
