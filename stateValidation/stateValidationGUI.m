@@ -721,19 +721,23 @@ function setCurrentWindow(handles)
     if ~isempty(eh)
         delete(eh)
     end
-    ph = gobjects(2,1);
+    ph = gobjects(2,2);
     if get(handles.episode_radio,'Value')==1
         yl = get(handles.ep_ax,'YLim');
         axes(handles.ep_ax)
         hold on
-        ph(1) = plot([1 1]*tMat(idx,1),yl,'k-','LineWidth',2,'ButtonDownFcn',@(src,event)stateValidationGUI('border_press_Callback',src,event,guidata(src),1));
-        ph(2) = plot([1 1]*tMat(idx,2),yl,'k-','LineWidth',2,'ButtonDownFcn',@(src,event)stateValidationGUI('border_press_Callback',src,event,guidata(src),2));
+        ph(1,1) = plot([1 1]*tMat(idx,1),yl,'k-','LineWidth',2,'ButtonDownFcn',@(src,event)stateValidationGUI('border_press_Callback',src,event,guidata(src),1));
+        ph(1,2) = plot([1 1]*tMat(idx,2),yl,'k-','LineWidth',2,'ButtonDownFcn',@(src,event)stateValidationGUI('border_press_Callback',src,event,guidata(src),2));
     else
         yl = get(handles.ep_ax,'Ylim');
         axes(handles.ep_ax)
         hold on
         ph = plot(tMat(idx,:),[1 1]*yl(1),'r^','LineWidth',3);
     end
+    axes(handles.spec_ax)
+    hold on
+    ph(2,1) = plot([1 1]*tMat(idx,1),'k--');
+    ph(2,2) = plot([1,1]*tMat(idx,2),'k--');
     setappdata(handles.figure1,'episodeEdgeHandles',ph)
 
 
