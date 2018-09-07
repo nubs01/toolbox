@@ -5,6 +5,7 @@ function createSpecFiles(dataDir,animID,sessionNum,varargin)
     winSize = 2; % seconds
     step  = .5; % seconds
     nboot = 10000;
+    overwrite = false;
 
     assignVars(varargin)
 
@@ -23,9 +24,9 @@ function createSpecFiles(dataDir,animID,sessionNum,varargin)
         ee = str2double(parsed.epoch);
         tt = str2double(parsed.tet);
         saveFile = sprintf('%s%sspectra%02i-%02i-%02i.mat',saveDir,animID,sessionNum,ee,tt);
-        if exist(saveFile,'file')
-            %fprintf('Spectra file for day %02i epoch %02i tet %02i already exists. Skipping...\n',sessionNum,ee,tt)
-            %continue;
+        if exist(saveFile,'file') && ~overwrite
+            fprintf('Spectra file for day %02i epoch %02i tet %02i already exists. Skipping...\n',sessionNum,ee,tt)
+            continue;
         end
         fprintf('Creating spectra file for %s day %02i epoch %02i tetrode %02i...\n',animID,sessionNum,ee,tt);
         eeg = load([eegDir eegFiles{k}]);

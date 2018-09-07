@@ -4,7 +4,7 @@ function out = rn_EMGFromLFP(animID,dataDir,sessionNum,varargin)
     Hd =  load(filterFile);
     lfpFilter = Hd.Hd;
     emgFs = 2; %Hz
-    overwrite = true;
+    overwrite = false;
     corrChunkSz = 20;
 
     assignVars(varargin)

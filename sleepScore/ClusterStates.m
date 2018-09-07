@@ -66,9 +66,6 @@ function sleepStates = ClusterStates(scoreData,varargin)
     % Change short WAKE next to REM into REM
     INT = IDXtoINT(IDX,3);
 
-    Rints = INT{3};
-    disp('Initial REM intervals:')
-    disp(Rints)
 
     Wint = INT{1};
     Wlens = diff(Wint,1,2);
@@ -83,9 +80,6 @@ function sleepStates = ClusterStates(scoreData,varargin)
     INT{3} = [INT{3};Wint(shortIdx,:)];
     INT{1}(shortIdx,:) = [];
     IDX = INTtoIDX(INT,numel(IDX));
-    Rints = INT{3};
-    disp('After Wake Conversion 1:')
-    disp(Rints)
 
     % Change short WAKE between REM into REM
     INT = IDXtoINT(IDX,3);
@@ -102,9 +96,6 @@ function sleepStates = ClusterStates(scoreData,varargin)
     INT{3} = [INT{3};Wint(shortIdx,:)];
     INT{1}(shortIdx,:) = [];
     IDX = INTtoIDX(INT,numel(IDX));
-    Rints = INT{3};
-    disp('After Wake Conversion 2:')
-    disp(Rints)
 
     % Change short REM between WAKE into WAKE
     INT = IDXtoINT(IDX,3);
@@ -121,16 +112,9 @@ function sleepStates = ClusterStates(scoreData,varargin)
     INT{1} = [INT{1};Rints(shortIdx,:)];
     INT{3}(shortIdx,:) = [];
     IDX = INTtoIDX(INT,numel(IDX));
-    Rints = INT{3};
-    disp('After short REM conversion 1:')
-    disp(Rints)
 
     % Change all short REM into WAKE
     IDX = convertShortStates(IDX,3,1,minREMsecs*specFs);
-    INT = IDXtoINT(IDX,3);
-    Rints = INT{3};
-    disp('After short REM conversion 1:')
-    disp(Rints)
 
     % Change short WAKE into NREM
     IDX = convertShortStates(IDX,1,2,minWAKEsecs*specFs);

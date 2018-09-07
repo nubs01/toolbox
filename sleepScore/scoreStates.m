@@ -32,6 +32,7 @@ function out = scoreStates(animID,dataDir,sessionNum,varargin)
         maxMicroarousalDuration,maxWAKEEpisodeInterruption,...
         maxNREMEpisodeInterruption,maxREMEpisodeInterruption);
 
+    overwrite = false;
 
     assignVars(varargin)
 
@@ -51,9 +52,14 @@ function out = scoreStates(animID,dataDir,sessionNum,varargin)
         mkdir(stateDir)
     end
     if exist(saveFile,'file')
-        q = input('Sleep State File Already Exists. Overwrite (Y/N):  ','s');
-        if strcmpi(q,'n')
-            return
+        if ~exist('overwrite','var')
+            q = input('Sleep State File Already Exists. Overwrite (Y/N):  ','s');
+            if strcmpi(q,'n')
+                return
+            end 
+        elseif ~overwrite
+            fprintf('State File already exists. Skipping...\n')
+            return;
         end
     end
     for epochNum = epochNums

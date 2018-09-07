@@ -81,6 +81,7 @@ function out = splitAroundEpisodes(toSplit,breakEPs,minDur)
         end
     end
     cutIdx = unique(cutIdx);
+    thisInt = [];
     for k=cutIdx'
         thisInt = toSplit(k,:);
         cutInside = find(breakEPs(:,1)>=thisInt(1) & breakEPs(:,1)<=thisInt(2));
