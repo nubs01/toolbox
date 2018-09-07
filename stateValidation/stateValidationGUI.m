@@ -244,6 +244,8 @@ function break_push_Callback(hObject, eventdata, handles)
     yl = get(handles.ep_ax,'YLim');
     ph = plot([xx xx],yl,'k-','LineWidth',2);
     set(ph,'ButtonDownFcn',@(src,event)stateValidationGUI('border_press_Callback',src,event,guidata(src),3))
+    axes(handles.spec_ax)
+    ph(2) = plot([xx xx],get(handles.spec_ax,'YLim'),'k-','LineWidth',2);
     setappdata(handles.figure1,'breakLine',ph)
     setappdata(handles.figure1,'breakActive',1)
     set(handles.nav_panel,'Visible','off')
@@ -259,7 +261,7 @@ function set_push_Callback(hObject, eventdata, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     L = getappdata(handles.figure1,'breakLine');
-    newX = get(L,'XData');
+    newX = get(L(1),'XData');
     newX = newX(1);
     stateMat = getappdata(handles.figure1,'currentStateMat');
     epEnd = find(stateMat(:,1)<=newX & stateMat(:,2)>=newX);
@@ -293,6 +295,8 @@ function reset_push_Callback(hObject, eventdata, handles)
     inputData = getappdata(handles.figure1,'InputData');
     setappdata(handles.figure1,'currentStateMat',inputData.state_mat)
     updateStateColoring(handles)
+    plotScatter(handles)
+    makeWindowLines(handles)
 
 
 % --- Executes on button press in done_push.
@@ -410,7 +414,11 @@ function changeCurrentState(handles,newState)
     set(sh(idx),'FaceColor',stateColors(newState,:))
     stateMat(idx,3) = newState;
     stateMat = stitchStates(stateMat);
+    if idx==1
+        idx=2;
+    end
     setappdata(handles.figure1,'currentStateMat',stateMat);
+    setappdata(handles.figure1,'currentIdx',idx-1)
     makeWindowLines(handles)
     plotScatter(handles)
     updateStats(handles)
@@ -589,7 +597,14 @@ function border_press_Callback(hObject,eventdata,handles,edgeNum)
     if getappdata(handles.figure1,'breakActive') && edgeNum~=3
         return;
     end
-    setappdata(handles.figure1,'movingLine',hObject)
+    if edgeNum~=3
+        edges = getappdata(handles.figure1,'episodeEdgeHandles');
+        moveEdges = edges(:,edgeNum);
+    else
+        edges = getappdata(handles.figure1,'breakLine');
+        moveEdges = edges;
+    end
+    setappdata(handles.figure1,'movingLine',moveEdges)
     setappdata(handles.figure1,'movingLineNum',edgeNum)
 
 % update statistics box
@@ -887,17 +902,27 @@ function figure1_WindowButtonUpFcn(hObject, eventdata, handles)
     end
     stateMat = getappdata(handles.figure1,'currentStateMat');
     idx = getappdata(handles.figure1,'currentIdx');
-    newX = get(L,'XData');
+    newX = get(L(1),'XData');
     newX = newX(1);
     epEnd = find(stateMat(:,1)<=newX & stateMat(:,2)>=newX);
     if N==1
-        stateMat(epEnd,2) = newX;
+        if epEnd==idx && idx>1
+            epEnd=idx-1;
+            stateMat(epEnd,2) = newX;
+        elseif epEnd~=idx
+            stateMat(epEnd,2) = newX;
+        end
         stateMat(idx,1) = newX;
         if idx-epEnd>1
             stateMat(epEnd+1:idx-1,:) = [];
         end
     elseif N==2
-        stateMat(epEnd,1) = newX;
+        if epEnd==idx && idx<size(stateMat,1)
+            epEnd==idx+1;
+            stateMat(epEnd,1) = newX;
+        elseif epEnd>idx
+            stateMat(epEnd,1) = newX;
+        end
         stateMat(idx,2) = newX;
         if epEnd-idx>1
             stateMat(idx+1:epEnd-1,:) = [];
