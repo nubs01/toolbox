@@ -42,7 +42,7 @@ function out = gatherBuzsakiStateScoringData(animID,sessionNum,epochNum,varargin
     fprintf('  - Getting best SW and theta tetrodes...\n')
     tetInfo = recDat.tet_info;
     allTets = [tetInfo.tetrode];
-    valididx = strcmpi({tetInfo.target},'CA1') & ~[tetInfo.exclude] & [tetInfo.lfp_channel]~=0;
+    valididx = strcmpi({tetInfo.target},'CA1') & ~[tetInfo.exclude] & str2double({tetInfo.lfp_channel})~=0;
     validTets = allTets(valididx);
     swthFile = sprintf('%sBestSWTHdat%s%sswth%02i-%02i.mat',dataDir,filesep,animID,sessionNum,epochNum);
     if exist(swthFile,'file')

@@ -4,7 +4,7 @@ function out = rn_EMGFromLFP(animID,dataDir,sessionNum,varargin)
     Hd =  load(filterFile);
     lfpFilter = Hd.Hd;
     emgFs = 2; %Hz
-    overwrite = false;
+    overwrite = true;
     corrChunkSz = 20;
 
     assignVars(varargin)
@@ -20,7 +20,7 @@ function out = rn_EMGFromLFP(animID,dataDir,sessionNum,varargin)
 
     % figure out which tets to use (all except exclude)
     % requirements: not EMG, lfp_channel~=0, not exclude
-    validTets = find(([tetInfo.lfp_channel]>0 & ~[tetInfo.exclude] & ~[tetInfo.emg]));
+    validTets = find((str2double({tetInfo.lfp_channel})>0 & ~[tetInfo.exclude] & ~[tetInfo.emg]));
     epochs = 1:numel(recDat.epochs);
 
     % Setup data and save directories

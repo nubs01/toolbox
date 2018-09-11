@@ -69,6 +69,7 @@ function SleepStateEpisodes = StatesToEpisodes(sleepStates,varargin)
     end
     stateMat = sortrows(stateMat);
     SleepStateEpisodes.state_mat = stateMat;
+    SleepStateEpisodes.manually_verified = 0;
 
 function out = splitAroundEpisodes(toSplit,breakEPs,minDur)
     orig = toSplit;
