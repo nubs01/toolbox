@@ -31,7 +31,10 @@ function createCWTFiles(dataDir,animID,sessionNum,varargin)
         fs = eeg.samprate;
         [psd,f,t] = getBinnedCWTSpectrogram(eeg.data,fs,winSize*fs,'freqRange',freqRange,'freqRes',freqRes);
         t = t+eeg.starttime;
-        winTimes = [t'-winSize/2 t'+winSize/2];
+        if isrow(t)
+            t = t';
+        end
+        winTimes = [t-winSize/2 t+winSize/2];
 
         specStruct.frequency = f;
         specStruct.spectrogram = psd;
