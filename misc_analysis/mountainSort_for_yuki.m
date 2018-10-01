@@ -26,10 +26,7 @@ for k=1:numel(animIDs)
     rawDir = [data_store_paths{k} filesep animIDs{k}];
     days_to_process = days{k};
     tet_list = tets{k};
-    for l=1:numel(days_to_process)
-        dd = days_to_process(l);
-        ml_process_animal(animIDs{k},rawDir,'sessionNum',dd,'tet_list',tet_list);
-    end
+    ml_process_animal(animIDs{k},rawDir,'tet_list',tet_list);
 
     % Push data to citadel
     pushErr = rsync(data_store_paths{k},data_fetch_paths{k});
