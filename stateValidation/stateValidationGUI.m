@@ -281,7 +281,7 @@ function set_push_Callback(hObject, eventdata, handles)
     if epEnd<size(stateMat,1)
         SM = [stateMat(1:epEnd,:);newX stateMat(epEnd,2) stateMat(epEnd,3);stateMat(epEnd+1:end,:)];
     else
-        SM = [stateMat(1:epEnd,:);newX statemat(epEnd,2) stateMat(epEnd,3)];
+        SM = [stateMat(1:epEnd,:);newX stateMat(epEnd,2) stateMat(epEnd,3)];
     end
     SM(epEnd,2) = newX;
     setappdata(handles.figure1,'currentStateMat',SM)
@@ -739,6 +739,7 @@ function plotSpectrogram(handles)
     zlPSD = zscore(lPSD,0,2);
     fzlPSD = imgaussfilt(zlPSD,[.1,5]);
     axes(handles.spec_ax)
+    cla(handles.spec_ax)
     imagesc(dat.spec_time,dat.spec_freq,fzlPSD)
     set(gca,'ydir','normal')
     %if ~isempty(which('magma'))
@@ -755,6 +756,7 @@ function plotSpectrogram(handles)
     plot(dat.spec_time([1 end]),[1 1]*thF(2),'k','LineWidth',2)
     xlabel('Time (s)')
     ylabel('Frequency (Hz)')
+    set(gca,'clim',[-3 3])
     
 
 
@@ -967,7 +969,9 @@ function figure1_WindowButtonUpFcn(hObject, eventdata, handles)
         return;
     end
     stateMat = getappdata(handles.figure1,'currentStateMat');
+    scatterTime = getappdata(handles.figure1,'scatter_time');
     idx = getappdata(handles.figure1,'currentIdx');
+    currTime = mean(scatterTime(idx,:));
     newX = get(L(1),'XData');
     newX = newX(1);
     epEnd = find(stateMat(:,1)<=newX & stateMat(:,2)>=newX,1,'first');
@@ -1000,7 +1004,14 @@ function figure1_WindowButtonUpFcn(hObject, eventdata, handles)
         setappdata(handles.figure1,'movingLine',[])
         return;
     end
-    stateMat = stitchStates(stateMat);
+    [stateMat,stitched] = stitchStates(stateMat);
+    newIdx = find(stateMat(:,1)<=currTime & stateMat(:,2)>=currTime,1,'first');
+    if stitched && ~isempty(newIdx)
+        setappdata(handles.figure1,'currentIdx',newIdx)
+    elseif isempty(newIdx)
+        disp('Time Whoops!')
+        keyboard;
+    end
     setappdata(handles.figure1,'currentStateMat',stateMat)
     setappdata(handles.figure1,'movingLine',[])
     drawnow;
