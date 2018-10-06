@@ -6,21 +6,23 @@ local_project_dir = '/media/roshan/ExtraDrive1/Projects/';
 data_fetch_paths = strcat(citadel_path,project_name,filesep,animIDs,'_',genotypes,'_Experiment');
 data_store_paths = strcat(local_project_dir,project_name,filesep,animIDs,'_',genotypes,'_Experiment');
 
-days = {(1:11);(1:14);(1:12);(1:11)};
-tets = {[1,2,3,4,6,7];[1,2,4,5];[1,3,4,6,7,8];[2,3,5,6,8]};
+days = {(1:11);(1:14);(9:12);(1:11)};
+tets = {[1,2,3,4,6,7];[1,2,4,5];[1,3,4,7,8];[2,3,5,6,8]};
 processErr = zeros(1,numel(animIDs));
 
 % For each animal
-for k=1:numel(animIDs)
+for k=3:numel(animIDs)
     if sum(processErr==1)>=2
         processErr(k) = 2;
         continue;
     end
     % Pull data from citadel
-    pullErr = rsync(data_fetch_paths{k},data_store_paths{k});
-    if pullErr~=0
-        processErr(k) = -1;
-        continue;
+    if ~exist(data_store_paths{k},'dir')
+        pullErr = rsync(data_fetch_paths{k},data_store_paths{k});
+        if pullErr~=0
+            processErr(k) = -1;
+            continue;
+        end
     end
     % Run Mountainsort
     rawDir = [data_store_paths{k} filesep animIDs{k}];

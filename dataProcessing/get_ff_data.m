@@ -1,4 +1,4 @@
-function [out,out_paths] = get_ff_data(animID,dataName,varargin)
+function [out,dataFile,out_paths] = get_ff_data(animID,dataName,varargin)
 
     firstStr = find(cellfun(@ischar,varargin),1,'first');
     if numel(varargin)>0 && (isempty(firstStr) || firstStr>1) 
@@ -24,9 +24,9 @@ function [out,out_paths] = get_ff_data(animID,dataName,varargin)
     rawDir = [expDir animID filesep];
     
     dayAddrStr = sprintf(strjoin(repmat({'%02i'},1,numel(dayAddr)),'-'),dayAddr);
-    dataFile = [subFolder filesep animID dataName dayAddrStr '.mat'];
+    dataFile = [dataDir subFolder filesep animID dataName dayAddrStr '.mat'];
 
-    outData = load([dataDir dataFile]);
+    outData = load(dataFile);
     tmpOut = outData.(dataName);
 
     if ~isempty(dayAddr) 

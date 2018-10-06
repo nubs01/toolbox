@@ -56,6 +56,11 @@ function out = getStateValidationData(animID,sessionNum,epochNum,varargin)
     emgNum = find([recDat.tet_info.emg]);
     if isempty(emgNum)
         fprintf('No EMG for %s day %s.\n',animID,sessionNum);
+    else
+        if str2num(recDat.tet_info(emgNum).lfp_channel)==0
+            emgNum=[];
+            disp('No EMG. Using EMG from LFP.')
+        end
     end
 
     % get all relvant file names (pos, spectra, states (if exists), emg)
@@ -82,11 +87,13 @@ function out = getStateValidationData(animID,sessionNum,epochNum,varargin)
         emg = emg.emg{sessionNum}{epochNum}{emgNum};
         tmpT = emg.starttime:1/emg.samprate:emg.endtime;
         [emgVec,emgTime] = processRawEMG(emg.data,tmpT,emg.samprate);
+        emgFromLFP=0;
     else
         emgFile = sprintf('%sEMG%s%semgfromlfp%02i-%02i.mat',dataDir,filesep,animID,sessionNum,epochNum);
         emg = load(emgFile);
         emg = emg.emgfromlfp{sessionNum}{epochNum};
         [emgVec,emgTime] = processRawEMG(emg.data,emg.time,emg.samprate,'fromLFP',true);
+        emgFromLFP=1;
     end
 
     fprintf('   - Loading Artifacts...\n')
@@ -169,7 +176,9 @@ function out = getStateValidationData(animID,sessionNum,epochNum,varargin)
     out.spec_freq = specFreq;
     out.emg_power = emgVec;
     out.emg_time = emgTime;
+    out.emg_from_lfp=emgFromLFP;
     out.velocity = velVec;
     out.vel_time = velTime;
+    out.state_names = stateNames;
     out.state_mat = stateMat;
     fprintf('Done!\n')

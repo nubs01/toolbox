@@ -63,6 +63,8 @@ function SleepStateEpisodes = StatesToEpisodes(sleepStates,varargin)
     stateMat = [];
     % to create state mat first split NREM episodes around wake intervals
     episodeintervals{2} = splitAroundEpisodes(episodeintervals{2},episodeintervals{1},minNREMEpisodeDuration);
+    % and split REM around NREM episodes
+    episodeintervals{3} = splitAroundEpisodes(episodeintervals{3},episodeintervals{2},minREMEpisodeDuration);
     for k=1:3
         tmp = [episodeintervals{k} repmat(k,size(episodeintervals{k},1),1)];
         stateMat = [stateMat;tmp];

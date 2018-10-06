@@ -76,7 +76,7 @@ function stateValidationGUI_OpeningFcn(hObject, eventdata, handles, varargin)
 
 % Choose default command line output for stateValidationGUI
 handles.output = varargin{1}.state_mat;
-
+handles.submitted = 0;
 % Update handles structure
 guidata(hObject, handles);
 if numel(varargin)==1
@@ -89,8 +89,12 @@ uiwait(handles.figure1);
 
 function init(inputData,handles,varargin)
     setappdata(handles.figure1,'InputData',inputData)
-    stateNames = {'REM','NREM','Rest','Active','Transition','Artifact'};
-    bandFreqs = {[1 4],[5 10],[11 14]};
+    if isfield(inputData,'state_names')
+        stateNames = inputData.state_names;
+    else
+        stateNames = {'REM','NREM','Rest','Active','Transition','Artifact'};
+    end
+    bandFreqs = {[1 4],[6 9],[11 15]};
     bandNames = {'Delta','Theta','Sigma'};
     stateColors = [0 1 1;... % REM
                     0 0 1;... %NREM
@@ -105,6 +109,8 @@ function init(inputData,handles,varargin)
     setappdata(handles.figure1,'init_varargin',varargin)
     assignVars(varargin)
 
+    % Disable open menu for now
+    set(handles.open_menu,'Enable','off')
     set(handles.transition_push,'ForegroundColor',[0 1 0])
     set(handles.title_text,'String',sprintf('%s Day %02i Epoch %02i: %s',inputData.animal,inputData.day,inputData.epoch,inputData.epoch_type))
     setappdata(handles.figure1,'stateNames',stateNames)
@@ -138,6 +144,9 @@ function init(inputData,handles,varargin)
     set(handles.change_panel,'Visible','on')
     set(handles.nav_panel,'Visible','on')
     set(handles.edit_panel,'Visible','on')
+    if inputData.emg_from_lfp
+        title(handles.spec_ax,'EMG is derived from LFP')
+    end
     
 
     plotMovementData(handles)
@@ -165,7 +174,11 @@ function varargout = stateValidationGUI_OutputFcn(hObject, eventdata, handles)
     % handles    structure with handles and user data (see GUIDATA)
 
     % Get default command line output from handles structure
-    varargout{1} = getappdata(handles.figure1,'currentStateMat');
+    if handles.submitted
+        varargout{1} = getappdata(handles.figure1,'currentStateMat');
+    else
+        varargout{1} = [];
+    end
     delete(handles.figure1);
 
 
@@ -304,6 +317,8 @@ function done_push_Callback(hObject, eventdata, handles)
     % hObject    handle to done_push (see GCBO)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
+    handles.submitted = 1;
+    guidata(hObject,handles)
     uiresume(handles.figure1)
 
 
@@ -409,22 +424,66 @@ function rem_push_Callback(hObject, eventdata, handles)
 function changeCurrentState(handles,newState)
     idx = getappdata(handles.figure1,'currentIdx');
     stateMat = getappdata(handles.figure1,'currentStateMat');
-    stateColors = getappdata(handles.figure1,'stateColors');
-    sh = getappdata(handles.figure1,'patchHandles');
-    set(sh(idx),'FaceColor',stateColors(newState,:))
-    stateMat(idx,3) = newState;
-    stateMat = stitchStates(stateMat);
-    if idx==1
-        idx=2;
+    if get(handles.window_radio,'Value')==1
+        tMat = getappdata(handles.figure1,'scatter_time');
+        epTime = tMat(idx,:);
+        currTime = mean(tMat(idx,:));
+        startIdx = find(epTime(1)>=stateMat(:,1) & epTime(1)<=stateMat(:,2),1,'last');
+        endIdx = find(epTime(2)>=stateMat(:,1) & epTime(2)<=stateMat(:,2),1,'first');
+
+        if isempty(startIdx) || isempty(endIdx) || numel(startIdx)>1 || numel(endIdx)>1
+            disp('Whoops')
+            keyboard;
+        end
+        SM = stateMat;
+        if startIdx==endIdx
+            if SM(startIdx,1)==epTime(1)  && SM(startIdx,2)==epTime(2)
+                SM(startIdx,3) = newState;
+            else
+                SM(startIdx,2) = epTime(1);
+                SM = [SM;epTime(1) epTime(2) newState];
+                SM = [SM;epTime(2) stateMat(startIdx,2) stateMat(startIdx,3)];
+            end
+        else
+            SM(startIdx,2) = epTime(1);
+            SM(endIdx,1) = epTime(2);
+            SM = [SM;epTime(1) epTime(2) newState];
+        end
+        if any(SM(:,2)-SM(:,1)==0)
+            tmpI = find(SM(:,2)-SM(:,1)==0);
+            SM(tmpI,:) = [];
+        end
+        SM = sortrows(SM,1,'ascend');
+        stateMat = SM;
+        if any(SM(:,2)-SM(:,1)<=0)
+            disp('Whoops pt 2')
+            keyboard;
+        end
+    else
+        tMat = stateMat(:,1:2);
+        currTime = mean(stateMat(idx,1:2));
+        stateMat(idx,3) = newState;
     end
+    [stateMat,stitched] = stitchStates(stateMat);
+    if stitched
+        idx = find(currTime>=tMat(:,1) & currTime<=tMat(:,2));
+    elseif get(handles.window_radio,'Value')~=1
+        stateColors = getappdata(handles.figure1,'stateColors');
+        sh = getappdata(handles.figure1,'patchHandles');
+        set(sh(idx),'FaceColor',stateColors(newState,:))
+    end
+
     setappdata(handles.figure1,'currentStateMat',stateMat);
-    setappdata(handles.figure1,'currentIdx',idx-1)
+    setappdata(handles.figure1,'currentIdx',idx)
+    if stitched || get(handles.window_radio,'Value')==1
+        updateStateColoring(handles);
+    end
     makeWindowLines(handles)
     plotScatter(handles)
     updateStats(handles)
 
 % Plot scatter plot
-function  plotScatter(handles)
+function plotScatter(handles)
     ph = getappdata(handles.figure1,'pointHighlight');
     if ~isempty(ph)
         delete(ph)
@@ -458,7 +517,11 @@ function  plotScatter(handles)
             if isempty(tmp)
                 scatterStates(k) = 5;
             else
-                scatterStates(k) = stateMat(tmp,3);
+                try
+                    scatterStates(k) = stateMat(tmp,3);
+                catch
+                    keyboard;
+                end
             end
         end
     end
@@ -543,6 +606,7 @@ function [datVec,datTime] = getDataVector(handles,dat,str)
             else
                 error('Invalid Option')
             end
+            datVec = zscore(datVec);
             datTime = dat.spec_time;
     end
 
@@ -550,7 +614,7 @@ function [datVec,datTime] = getDataVector(handles,dat,str)
 % Function returns band power 
 function out = getBandPower(specDat,specFreq,bandFreq)
     a = specFreq>=bandFreq(1) & specFreq<=bandFreq(2);
-    out = mean(specDat(a,:));
+    out = mean(abs(specDat(a,:)));
 
 % Function returns band variance
 function out = getBandVariance(specDat,specFreq,bandFreq)
@@ -673,15 +737,15 @@ function plotSpectrogram(handles)
     S = abs(S);
     lPSD = 10*log10(S);
     zlPSD = zscore(lPSD,0,2);
-    fzlPSD = imgaussfilt(zlPSD,2);
+    fzlPSD = imgaussfilt(zlPSD,[.1,5]);
     axes(handles.spec_ax)
     imagesc(dat.spec_time,dat.spec_freq,fzlPSD)
     set(gca,'ydir','normal')
-    if ~isempty(which('magma'))
-        colormap(magma)
-    else
+    %if ~isempty(which('magma'))
+    %    colormap(magma)
+    %else
         colormap(jet)
-    end
+    %end
     hold on
     bandNames = getappdata(handles.figure1,'bandNames');
     bandFreqs = getappdata(handles.figure1,'bandFreqs');
@@ -691,6 +755,7 @@ function plotSpectrogram(handles)
     plot(dat.spec_time([1 end]),[1 1]*thF(2),'k','LineWidth',2)
     xlabel('Time (s)')
     ylabel('Frequency (Hz)')
+    
 
 
 % update window edges
@@ -721,12 +786,14 @@ function setCurrentWindow(handles)
     tMat = getappdata(handles.figure1,'scatter_time');
     idx = getappdata(handles.figure1,'currentIdx');
     dispSize = getappdata(handles.figure1,'displaySize');
-    if abs(diff(tMat(idx,:)))>=dispSize
+    episode_length = abs(diff(tMat(idx,:)));
+    if episode_length>=dispSize
         xlim = tMat(idx,:) + [-60 60]; % show 1  minute on each side of episode
     else
         xlim = mean(tMat(idx,:)) + [-.5 .5]*dispSize;
     end
     set(handles.ep_ax,'XLim',xlim)
+    title(handles.ep_ax,sprintf('Duration: %0.2f sec',episode_length))
     set(handles.spec_ax,'XLim',xlim)
 
     % Make moving thick lines for adjusting episodes
@@ -798,8 +865,7 @@ function winSize_edit_Callback(hObject, eventdata, handles)
         return;
     end
     setappdata(handles.figure1,'winSize',winSize)
-    makeWindowLines(handles)
-    plotScatter(handles)
+    window_radio_Callback(handles.window_radio,[],handles)
 
 
 % --- Executes during object creation, after setting all properties.
@@ -821,7 +887,7 @@ function episode_radio_Callback(hObject, eventdata, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     set(handles.winSize_edit,'enable','off')
-    set(handles.edit_panel,'Visible','on')
+    set(handles.break_push,'Visible','on')
     stateMat = getappdata(handles.figure1,'currentStateMat');
     idx = getappdata(handles.figure1,'currentIdx');
     tMat = getappdata(handles.figure1,'scatter_time');
@@ -842,7 +908,7 @@ function window_radio_Callback(hObject, eventdata, handles)
     % eventdata  reserved - to be defined in a future version of MATLAB
     % handles    structure with handles and user data (see GUIDATA)
     set(handles.winSize_edit,'enable','on')
-    set(handles.edit_panel,'visible','off')
+    set(handles.break_push,'visible','off')
     inputData = getappdata(handles.figure1,'InputData');
     idx = getappdata(handles.figure1,'currentIdx');
     tMat = getappdata(handles.figure1,'scatter_time');
@@ -904,7 +970,10 @@ function figure1_WindowButtonUpFcn(hObject, eventdata, handles)
     idx = getappdata(handles.figure1,'currentIdx');
     newX = get(L(1),'XData');
     newX = newX(1);
-    epEnd = find(stateMat(:,1)<=newX & stateMat(:,2)>=newX);
+    epEnd = find(stateMat(:,1)<=newX & stateMat(:,2)>=newX,1,'first');
+    if isempty(epEnd)
+        keyboard;
+    end
     if N==1
         if epEnd==idx && idx>1
             epEnd=idx-1;
@@ -918,7 +987,7 @@ function figure1_WindowButtonUpFcn(hObject, eventdata, handles)
         end
     elseif N==2
         if epEnd==idx && idx<size(stateMat,1)
-            epEnd==idx+1;
+            epEnd=idx+1;
             stateMat(epEnd,1) = newX;
         elseif epEnd>idx
             stateMat(epEnd,1) = newX;
@@ -950,8 +1019,13 @@ function transition_push_Callback(hObject, eventdata, handles)
     changeCurrentState(handles,newState)
 
 
-function stateMat = stitchStates(stateMat)
+function [stateMat,stitched] = stitchStates(stateMat)
+    stitched=0;
     idx = find(stateMat(1:end-1,2)==stateMat(2:end,1) & stateMat(1:end-1,3)==stateMat(2:end,3));
+    if isempty(idx)
+        return;
+    end
+    stitched=1;
     SM = stateMat;
     for k=numel(idx):-1:1
         SM(idx(k),2) = SM(idx(k)+1,2);

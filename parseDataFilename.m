@@ -3,7 +3,7 @@ function out = parseDataFilename(fn,animID)
     % ('RW6') this will return a structure containing the data type (eeg) and
     % day, epoch and tetrode in a struct with fields type, day, epoch, tetrode
 
-    if ~contains(fn,filesep)
+    if contains(fn,filesep)
         fn = fn(find(fn==filesep,1,'last'):end);
     end
     if ~exist('animID','var')

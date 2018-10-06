@@ -38,21 +38,21 @@ function createSpecFiles(dataDir,animID,sessionNum,varargin)
         winTimes = [t'-winSize/2 t'+winSize/2];
 
         % remove windows with artifacts
-        artFile = sprintf('%s%sartifacts%02i-%02i.mat',artDir,animID,sessionNum,ee);
-        if ~exist(artFile,'file')
-            disp('Artifact file does not exist. Not excluding artifacts.')
-            Pxx2 = Pxx;
+        %artFile = sprintf('%s%sartifacts%02i-%02i.mat',artDir,animID,sessionNum,ee);
+        %if ~exist(artFile,'file')
+        %    disp('Artifact file does not exist. Not excluding artifacts.')
+        %    Pxx2 = Pxx;
             artWins = [];
             artExcluded = 0;
             artFile = '';
-        else
-            artifacts = load(artFile);
-            artifacts = artifacts.artifacts{sessionNum}{ee};
-            artWins = getOverlapIndices(winTimes,artifacts.artifact_times);
-            Pxx2 = Pxx;
-            Pxx2(artWins,:) = [];
-            artExcluded = 1;
-        end
+        %else
+        %    artifacts = load(artFile);
+        %    artifacts = artifacts.artifacts{sessionNum}{ee};
+        %    artWins = getOverlapIndices(winTimes,artifacts.artifact_times);
+        %    Pxx2 = Pxx;
+        %    Pxx2(artWins,:) = [];
+        %    artExcluded = 1;
+        %end
         bootdat = bootstrapDat(Pxx,nboot);
         meanEpoSpec = [bootdat.mean];
         epoSpecError = [bootdat.SEM];
