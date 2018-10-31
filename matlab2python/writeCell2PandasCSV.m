@@ -7,13 +7,18 @@ function writeCell2PandasCSV(outFile,data,varargin)
 
     headers = {};
     precision = 3;
+    append = 0;
 
     assignVars(varargin)
 
     nRows = size(data,1);
     nCols = size(data,2);
 
-    fid = fopen(outFile,'w');
+    if ~append
+        fid = fopen(outFile,'w');
+    else
+        fid = fopen(outFile,'a');
+    end
     if ~isempty(headers)
         idx = ~cellfun(@ischar,headers);
         if any(idx)

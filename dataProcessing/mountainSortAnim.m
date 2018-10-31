@@ -2,7 +2,7 @@ function mountainSortAnim(animID,varargin)
     % mountainSortAnim(animID)
     %
 
-    projDir = '/home/roshan/Projects/';
+    projDir = get_data_path('project_directory');
     sessionNum = [];
     forceTets = [];
     mask_artifacts = 1;

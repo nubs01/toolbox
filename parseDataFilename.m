@@ -26,4 +26,4 @@ function out = parseDataFilename(fn,animID)
     end
     pat = [animID '(?<type>\D*)(?<day>\d+).mat'];
     out = regexp(fn,pat,'names');
-    
+    out.anim=animID;

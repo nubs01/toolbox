@@ -94,7 +94,7 @@ function init(inputData,handles,varargin)
     else
         stateNames = {'REM','NREM','Rest','Active','Transition','Artifact'};
     end
-    bandFreqs = {[1 4],[6 9],[11 15]};
+    bandFreqs = {[1 5],[5 10],[11 15]};
     bandNames = {'Delta','Theta','Sigma'};
     stateColors = [0 1 1;... % REM
                     0 0 1;... %NREM
@@ -258,6 +258,7 @@ function break_push_Callback(hObject, eventdata, handles)
     ph = plot([xx xx],yl,'k-','LineWidth',2);
     set(ph,'ButtonDownFcn',@(src,event)stateValidationGUI('border_press_Callback',src,event,guidata(src),3))
     axes(handles.spec_ax)
+    hold on
     ph(2) = plot([xx xx],get(handles.spec_ax,'YLim'),'k-','LineWidth',2);
     setappdata(handles.figure1,'breakLine',ph)
     setappdata(handles.figure1,'breakActive',1)
@@ -472,6 +473,9 @@ function changeCurrentState(handles,newState)
         sh = getappdata(handles.figure1,'patchHandles');
         set(sh(idx),'FaceColor',stateColors(newState,:))
     end
+    if get(handles.window_radio,'Value')==1
+        idx = idx+1;
+    end
 
     setappdata(handles.figure1,'currentStateMat',stateMat);
     setappdata(handles.figure1,'currentIdx',idx)
@@ -548,6 +552,9 @@ function plotScatter(handles)
     drawnow;
     % Highlight current point
     currIdx = getappdata(handles.figure1,'currentIdx');
+    if numel(currIdx)>1
+        keyboard;
+    end
     if isempty(currIdx) || currIdx>size(scatterTime,1)
         setappdata(handles.figure1,'currentIdx',1);
     end
@@ -606,7 +613,15 @@ function [datVec,datTime] = getDataVector(handles,dat,str)
             else
                 error('Invalid Option')
             end
-            datVec = zscore(datVec);
+            tmp = sort(datVec,'descend');
+            if numel(tmp)>20
+                mm = mean(tmp(21:end));
+                sd = std(tmp(21:end));
+            else
+                mm = mean(tmp);
+                sd = std(tmp);
+            end
+            datVec = (datVec-mm)./sd;
             datTime = dat.spec_time;
     end
 
@@ -664,6 +679,10 @@ function border_press_Callback(hObject,eventdata,handles,edgeNum)
     if edgeNum~=3
         edges = getappdata(handles.figure1,'episodeEdgeHandles');
         moveEdges = edges(:,edgeNum);
+        axes(handles.spec_ax)
+        hold on
+        ph = plot(get(moveEdges,'XData'),get(handles.spec_ax,'YLim'),'k-','LineWidth',2);
+        setappdata(handles.figure1,'extra_line',ph)
     else
         edges = getappdata(handles.figure1,'breakLine');
         moveEdges = edges;
@@ -756,7 +775,7 @@ function plotSpectrogram(handles)
     plot(dat.spec_time([1 end]),[1 1]*thF(2),'k','LineWidth',2)
     xlabel('Time (s)')
     ylabel('Frequency (Hz)')
-    set(gca,'clim',[-3 3])
+    %set(gca,'clim',[-2 2])
     
 
 
@@ -803,7 +822,7 @@ function setCurrentWindow(handles)
     if ~isempty(eh)
         delete(eh)
     end
-    ph = gobjects(2,2);
+    ph = gobjects(1,2);
     if get(handles.episode_radio,'Value')==1
         yl = get(handles.ep_ax,'YLim');
         axes(handles.ep_ax)
@@ -816,10 +835,6 @@ function setCurrentWindow(handles)
         hold on
         ph = plot(tMat(idx,:),[1 1]*yl(1),'r^','LineWidth',3);
     end
-    axes(handles.spec_ax)
-    hold on
-    ph(2,1) = plot([1 1]*tMat(idx,1),'k--');
-    ph(2,2) = plot([1,1]*tMat(idx,2),'k--');
     setappdata(handles.figure1,'episodeEdgeHandles',ph)
 
 
@@ -920,7 +935,7 @@ function window_radio_Callback(hObject, eventdata, handles)
     tEnd = inputData.spec_time(end);
     scatterTime = [(tStart:winSize:tEnd-winSize)' (tStart+winSize:winSize:tEnd)'];
     setappdata(handles.figure1,'scatter_time',scatterTime);
-    tmp = find(scatterTime(:,1)<=tNow & scatterTime(:,2)>=tNow);
+    tmp = find(scatterTime(:,1)<=tNow & scatterTime(:,2)>=tNow,1,'last');
     setappdata(handles.figure1,'currentIdx',tmp);
     set(handles.ep_edit,'String',num2str(tmp));
     set(handles.total_text,'String',['/  ' num2str(size(scatterTime,1))])
@@ -939,6 +954,7 @@ function figure1_WindowButtonMotionFcn(hObject, eventdata, handles)
     if isempty(L)
         return;
     end
+    eL = getappdata(handles.figure1,'extra_line');
     cp = get(gca,'CurrentPoint');
     inDat = getappdata(handles.figure1,'InputData');
     emgTime = inDat.emg_time;
@@ -950,6 +966,9 @@ function figure1_WindowButtonMotionFcn(hObject, eventdata, handles)
         lineX = cp(1,1);
     end
     set(L,'XData',[lineX lineX])
+    if ~isempty(eL)
+        set(eL,'XData',[lineX lineX])
+    end
 
 
 % --- Executes on mouse press over figure background, over a disabled or
@@ -1011,6 +1030,11 @@ function figure1_WindowButtonUpFcn(hObject, eventdata, handles)
     elseif isempty(newIdx)
         disp('Time Whoops!')
         keyboard;
+    end
+    eL = getappdata(handles.figure1,'extra_line');
+    if ~isempty(eL)
+        delete(eL)
+        setappdata(handles.figure1,'extra_line',[])
     end
     setappdata(handles.figure1,'currentStateMat',stateMat)
     setappdata(handles.figure1,'movingLine',[])

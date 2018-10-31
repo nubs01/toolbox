@@ -13,8 +13,9 @@ function out = getSleepWakeStates(emg,pos,varargin)
     velHighThresh = 5;
     velLowThresh = 0.5;
     ignoreTransients = 10; 
-    emgFs = 10;
+    emgFs = 1;
     minSleepDur = 40; % seconds, onnly used if EMG is unavailable
+    fromLFP = false;
 
     assignVars(varargin)
 
@@ -44,7 +45,12 @@ function out = getSleepWakeStates(emg,pos,varargin)
         else
             emgTime = emg.starttime:1/emg.samprate:emg.endtime;
         end
-        [zEMG,emgTime2] =  processRawEMG(emg.data,emgTime,emg.samprate,'step',1/emgFs);
+        if ~fromLFP
+            [zEMG,emgTime2] =  processRawEMG(emg.data,emgTime,emg.samprate,'step',1/emgFs);
+        else
+            [zEMG,emgTime2] =  processRawEMG(emg.data,emgTime,emg.samprate,'fromLFP',true);
+        end
+
 
         emgClasses = twoThreshSchmittTrigger(zEMG,emgHighThresh,emgLowThresh);
         emgClasses2 = removeTransientStates(emgClasses,ignoreTransients*emgFs);
@@ -64,4 +70,4 @@ function out = getSleepWakeStates(emg,pos,varargin)
     tmp = sortrows(tmp,1);
     tmpTimes = tmp;
     tmpTimes(:,1:2) = stateTime(tmp(:,1:2));
-    out = struct('time_vec',stateTime,'state_vec',stateVec,'state_mat',tmpTimes);
+    out = struct('state_names',{{'nrem','wake'}},'time_vec',stateTime,'state_vec',stateVec,'state_mat',tmpTimes);

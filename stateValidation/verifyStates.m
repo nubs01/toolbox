@@ -1,18 +1,38 @@
-function [stateDat,stateFile] = verifyStates(animID,sessionNum)
+function [stateDat,stateFile] = verifyStates(animID,sessionNum,varargin)
+
+    dataDir = [];
+    assignVars(varargin)
 
     contFlag = 1;
     changed = 0;
-    [stateDat,stateFile] = get_ff_data(animID,'states',sessionNum,'subFolder','SleepStates');
+    if isempty(dataDir)
+        [stateDat,stateFile] = get_ff_data(animID,'states',sessionNum,'subFolder','SleepStates');
+    else
+        tmp = subdir(sprintf('%s%s*%sstates%02i*',dataDir,filesep,animID,sessionNum));
+        if isempty(tmp) || numel(tmp)>1
+            error
+        end
+        stateFile = tmp.name;
+        stateDat = load(stateFile);
+        stateDat = stateDat.states{sessionNum};
+    end
     epochs = (1:numel(stateDat))';
     while contFlag
         verified = (cellfun(@(x) x.manually_verified,stateDat))';
         disp(table(epochs,verified,'VariableNames',{'Epoch','Verified'}))
         ee = input('Which epoch would you like to manually score (0 to cancel)?  ');
-        if ee==0
-            return;
+        if isempty(ee) || ee==0
+            break;
         end
 
-        valDat = getStateValidationData(animID,sessionNum,ee);
+        if isempty(dataDir)
+            valDat = getStateValidationData(animID,sessionNum,ee);
+        else
+            valFile = strrep(stateFile,'states','stateValDat');
+            valFile = [valFile(1:end-4) sprintf('-%02i.mat',ee)];
+            valDat = load(valFile);
+            valDat = valDat.stateValDat{sessionNum}{ee};
+        end
         try
             newStates = stateValidationGUI(valDat);
         catch ME
@@ -50,6 +70,6 @@ function [stateDat,stateFile] = verifyStates(animID,sessionNum)
         fprintf('No changes made to states file\n')
     end
 
-            
+
 
 
