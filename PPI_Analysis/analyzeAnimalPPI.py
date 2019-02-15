@@ -4,12 +4,35 @@ import pandas as pd
 import numpy as np
 import matplotlib as plt
 import seaborn as sns
+import easygui as eg
 import warnings
+from difflib import SequenceMatcher
+
+# To compare animals names to see if multiple animals in DB is due to typo
+def similar(a, b):
+    return SequenceMatcher(None, a, b).ratio()
 
 # Turn off annoying known warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 pd.options.mode.chained_assignment = None
 
+# To forward pritn output to log file
+class Logger(object):
+    def __init__(self,log_file):
+        self.terminal = sys.stdout
+        self.log = open(log_file, "a")
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)  
+
+    def flush(self):
+        #this flush method is needed for python 3 compatibility.
+        #this handles the flush command by doing nothing.
+        #you might want to specify some extra behavior here.
+        pass    
+
+# To get PPI %
 def calcPPI(row):
    # print(row)
     if row['Trial_Type']=='PPI':
@@ -19,6 +42,7 @@ def calcPPI(row):
     else:
         return row['% PPI']
     
+# To get PPI Metrics table
 def get_ppi_metrics(x):
     d = {}
     d['Mean Startle (mV)'] = x['mV Max'].mean()
@@ -28,7 +52,8 @@ def get_ppi_metrics(x):
     return pd.Series(d,index=['Mean Startle (mV)',
                               'Startle SD (mV)','Mean PPI (%)',
                               'PPI SD (%)'])
-    
+
+# Set custom plot style
 custom_style = {'figure.facecolor':'.8',
                 "axes.facecolor":".8",
                 'axes.edgecolor':'.8',
@@ -44,7 +69,12 @@ sns.set_style('whitegrid',rc=custom_style)
 sns.set_context('talk')
 col_palette = sns.color_palette("bright")
 
-file_paths = sys.argv[1:]
+# Check if command line file input or open file chooser box
+if len(sys.argv) < 2:
+    file_paths = eg.fileopenbox(msg='Choose PPI datafile to open',filetypes=['*.txt'],multiple=True)
+else:
+    file_paths = sys.argv[1:]
+
 
 header= {0:'Chamber',1:'Subject',2:'Session',
          3:'Channel',4:'Trial',5:'Trial Num',
@@ -74,8 +104,23 @@ for fn in file_paths:
     # Print info about data
     animal = data['Subject'].unique()
     if len(animal)>1:
-        sys.exit('Multiple Animals found in database.') 
+        similarity = [similar(x,y) for i,x in enumerate(animal) for j,y in enumerate(animal) if j>i]
+        if all(x>0.9 for x in similarity):
+            log_file = os.path.join(data_dir,animal[0]+'_Analysis_Log.txt')
+            original_output = sys.stdout
+            sys.stdout = Logger(log_file)
+            animList = ''.join(x+',' for x in animal)
+            print('Found multiple animals names: '+animList)
+            print('Similarity was found to be >90% for all names')
+            print('Assuming same animal. Changing all names to '+animal[0])
+            animal = animal[0]
+            data['Subject'] = animal
+        else:
+            sys.exit('Multiple Animals found in database. Names too dissimilar to assume typo. Quitting.') 
     else:
+        log_file = os.path.join(data_dir,animal[0]+'_Analysis_Log.txt')
+        original_output = sys.stdout
+        sys.stdout = Logger(log_file)
         animal = animal[0]
         
     trial_counts = data.groupby(['Session_Type',
@@ -87,27 +132,34 @@ for fn in file_paths:
     print('Trial Counts')
     print('---------------')
     trial_counts = trial_counts.to_frame().rename(columns={0:'Counts'})
-    print(trial_counts)
+    print(trial_counts.to_string())
     
     # Grab ASR and PPI Data
     asrData = data.query('Session_Type=="ASR"')
     ppiData = data.query('Session_Type=="rPPI"')
     
-    # Calculate PPI 
-    startleDB = ppiData.query('Trial_Type=="Startle"')['Stim_dB'].unique()
-    ppiData["% PPI"] = np.nan
-    ppiData['% PPI'] = ppiData.apply(calcPPI,axis=1)
+    if ppiData.shape[0]==0:
+        print('')
+        print('No rPPI Data found for '+animal)
+        noPPI = True
+    else:
+        noPPI = False
+        
+        # Calculate PPI 
+        startleDB = ppiData.query('Trial_Type=="Startle"')['Stim_dB'].unique()
+        ppiData["% PPI"] = np.nan
+        ppiData['% PPI'] = ppiData.apply(calcPPI,axis=1)
     
-    # Make and print table 
+        # Make and print table 
     
-    ppi_metrics = ppiData.groupby(['Trial_Type',
-                                   'Stim_dB',
-                                   'Prepulse_dB']).apply(get_ppi_metrics).round(2)
-    print ('')
-    print('')
-    print('PPI Metrics (from rPPI Session)')
-    print('------------')
-    print(ppi_metrics)
+        ppi_metrics = ppiData.groupby(['Trial_Type',
+                                       'Stim_dB',
+                                       'Prepulse_dB']).apply(get_ppi_metrics).round(2)
+        print('')
+        print('')
+        print('PPI Metrics (from rPPI Session)')
+        print('------------')
+        print(ppi_metrics.to_string())
     
     # Make Figures
     pal = sns.color_palette('bright')
@@ -121,23 +173,30 @@ for fn in file_paths:
     g.set_title(animal+' Acoustic Startle Response')
     g.set(xlabel='Stimulus dB',ylabel='Max Startle (mV)')
 
-    # Raw PPI Startle Amplitudes
-    ax = plt.pyplot.subplot(2,2,3)
-    g = sns.barplot(ax=ax,x='Trial',y='mV Max',
-                    data=ppiData,palette='bright')
-    g.set_title(animal+' rPPI Startle Responses')
-    g.set(xlabel='Stimulus dB',ylabel='Max Startle (mV)')
-
-    # % PPI plot
-    ax=plt.pyplot.subplot(2,2,4)
-    g=sns.barplot(ax = ax,x='Prepulse_dB',y="% PPI",
-                  data=ppiData,order = [70,75,80],palette=pal[3:6])
-    g.set_title(animal+' Percent PPI')
-    g.set(xlabel='Prepulse dB',ylabel='% PPI')
+    if noPPI:
+        ax = plt.pyplot.subplot(2,1,2)
+        ax.axis('off')
+        ax.text(0.5,0.5,'No rPPI Data found for '+animal,size=24,ha='center',va='center')
+    else:
+        # Raw PPI Startle Amplitudes
+        ax = plt.pyplot.subplot(2,2,3)
+        g = sns.barplot(ax=ax,x='Trial',y='mV Max',
+                        data=ppiData,palette='bright')
+        g.set_title(animal+' rPPI Startle Responses')
+        g.set(xlabel='Stimulus dB',ylabel='Max Startle (mV)')
+    
+        # % PPI plot
+        ax=plt.pyplot.subplot(2,2,4)
+        g=sns.barplot(ax = ax,x='Prepulse_dB',y="% PPI",
+                      data=ppiData,order = [70,75,80],palette=pal[3:6])
+        g.set_title(animal+' Percent PPI')
+        g.set(xlabel='Prepulse dB',ylabel='% PPI')
 
     savefile = os.path.join(data_dir,animal+'_PPI_Results_Figure.png')
     plt.pyplot.savefig(savefile)
+    plt.pyplot.close()
     
     print('')
     print('Plot saved to '+savefile)
     print('Done!')
+    sys.stdout = original_output
