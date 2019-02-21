@@ -7,6 +7,7 @@ import seaborn as sns
 import easygui as eg
 import warnings
 from difflib import SequenceMatcher
+from scipy.stats import ttest_ind
 
 # To compare animals names to see if multiple animals in DB is due to typo
 def similar(a, b):
@@ -33,11 +34,11 @@ class Logger(object):
         pass    
 
 # To get PPI %
-def calcPPI(row):
+def calcPPI(row,df):
    # print(row)
     if row['Trial_Type']=='PPI':
         stimDB = row['Stim_dB']
-        stimMean = ppiData.query('Trial_Type=="Startle" & Stim_dB==@stimDB')['mV Max'].mean()
+        stimMean = df.query('Trial_Type=="Startle" & Stim_dB==@stimDB')['mV Max'].mean()
         return 100*(1-row['mV Max']/stimMean)
     else:
         return row['% PPI']
@@ -87,6 +88,7 @@ for fn in file_paths:
     data = pd.read_csv(fn,header=None)
     data = data.rename(columns=header)
     data = data.drop(columns=['Param','Run Data'])
+    Nnan = data.isnull().any(axis=1).sum()
     data = data.dropna()
     data_dir = os.path.split(fn)[0]
     
@@ -106,22 +108,29 @@ for fn in file_paths:
     if len(animal)>1:
         similarity = [similar(x,y) for i,x in enumerate(animal) for j,y in enumerate(animal) if j>i]
         if all(x>0.9 for x in similarity):
+            log_file = os.path.join(data_dir,animal[0]+'_Analysis_Log.txt')
+            original_output = sys.stdout
+            sys.stdout = Logger(log_file)
+            animList = ''.join(x+',' for x in animal)
+            print('Found multiple animals names: '+animList)
+            print('Similarity was found to be >90% for all names')
+            print('Assuming same animal. Changing all names to '+animal[0])
             animal = animal[0]
             data['Subject'] = animal
         else:
-            sys.exit('Multiple Animals found in database.') 
+            sys.exit('Multiple Animals found in database. Names too dissimilar to assume typo. Quitting.') 
     else:
+        log_file = os.path.join(data_dir,animal[0]+'_Analysis_Log.txt')
+        original_output = sys.stdout
+        sys.stdout = Logger(log_file)
         animal = animal[0]
-        
-    log_file = os.path.join(data_dir,animal+'_Analysis_Log.txt')
-   # log = open(log_file,'w')
-    original_output = sys.stdout
-    sys.stdout = Logger(log_file)
         
     trial_counts = data.groupby(['Session_Type',
                                 'Trial_Type','Stim_dB',
                                  'Prepulse_dB']).size()
     print('Loaded data for '+animal)
+    if Nnan >0:
+        print(str(Nnan)+' rows were found with unexpected NaN values. These rows were dropped from analysis.')
     print('')
     print('')
     print('Trial Counts')
@@ -141,9 +150,8 @@ for fn in file_paths:
         noPPI = False
         
         # Calculate PPI 
-        startleDB = ppiData.query('Trial_Type=="Startle"')['Stim_dB'].unique()
-        ppiData["% PPI"] = np.nan
-        ppiData['% PPI'] = ppiData.apply(calcPPI,axis=1)
+        ppiData.loc[:,'% PPI'] = np.nan
+        ppiData.loc[:,'% PPI'] = ppiData.apply(lambda x: calcPPI(x,ppiData),axis=1)
     
         # Make and print table 
     
@@ -155,6 +163,49 @@ for fn in file_paths:
         print('PPI Metrics (from rPPI Session)')
         print('------------')
         print(ppi_metrics.to_string())
+        
+        # Get order for bar plot
+        a = ppiData['Trial'].unique()
+        sortDF = pd.DataFrame(a,columns=['Trial'])
+        sortDF = pd.concat((sortDF,sortDF.Trial.str.split('_',expand=True)),axis=1).rename(columns={0:'Trial_Type',1:'Stim_dB',2:'Prepulse_dB'})
+        cols = ['Stim_dB','Prepulse_dB']
+        sortDF[cols] = sortDF[cols].apply(pd.to_numeric)
+        sortDF['Trial_Type'] = pd.Categorical(sortDF['Trial_Type'],['NoStim','PPIO','Startle','PPI'])
+        sortDF = sortDF.sort_values(by=['Trial_Type','Stim_dB','Prepulse_dB'])
+        sortDF.reset_index(inplace=True,drop=True)
+        sortDF.reset_index(inplace=True)
+        sortDF.rename(columns={'index':'x'},inplace=True)
+        barOrder = sortDF['Trial']
+        
+        # Run Statistics
+        # Stats: Welch's T-test between PPI Trials and Startle Trials
+        ppiStim = ppiData.query("Trial_Type=='PPI'")['Stim_dB'].unique()
+        stimDB = [x for x in ppiStim if not ppiData.query('Trial_Type=="Startle" and Stim_dB==@x').empty]
+        ppDB = ppiData.query('Trial_Type=="PPI"')['Prepulse_dB'].unique()
+        ppiStats = pd.DataFrame(columns=['Stim_dB','Prepulse_dB','T-statistic','p-Value','sigstars','x'])
+        for stim in stimDB:
+            for pp in ppDB:
+                a = ppiData.query('Trial_Type=="Startle" and Stim_dB==@stim')['mV Max']
+                b = ppiData.query('Trial_Type=="PPI" and Stim_dB==@stim and Prepulse_dB==@pp')['mV Max']
+                if a.empty or b.empty:
+                    continue
+                res = ttest_ind(a,b,equal_var=False)
+                ss = ''
+                if res.pvalue<=0.05:
+                    ss = '*'
+                if res.pvalue<=0.01:
+                    ss = '**'
+                if res.pvalue<=0.001:
+                    ss='***'
+                x = sortDF.query('Stim_dB==@stim and Prepulse_dB==@pp')['x'].tolist()[0]
+                ppiStats.loc[-1] = [stim,pp,res.statistic,res.pvalue,ss,x]
+                ppiStats.reset_index(drop=True,inplace=True)
+        
+        print('')
+        print('')
+        print('PPi Statistics (from rPPI Session)')
+        print('------------')
+        print(ppiStats.drop(columns=['sigstars','x']).to_string())
     
     # Make Figures
     pal = sns.color_palette('bright')
@@ -175,10 +226,23 @@ for fn in file_paths:
     else:
         # Raw PPI Startle Amplitudes
         ax = plt.pyplot.subplot(2,2,3)
-        g = sns.barplot(ax=ax,x='Trial',y='mV Max',
-                        data=ppiData,palette='bright')
+        g = sns.barplot(ax=ax,x='Trial',y='mV Max',data=ppiData,palette='bright',order=barOrder)
         g.set_title(animal+' rPPI Startle Responses')
         g.set(xlabel='Stimulus dB',ylabel='Max Startle (mV)')
+        ylim = g.get_ylim()
+        errorbars = g.get_lines()
+        barTops = [x.get_ydata()[1] for x in errorbars]
+        startX = sortDF.x[sortDF.Trial_Type=='Startle'].tolist()[0]
+        endX = ppiStats.x[ppiStats['p-Value']<=0.05].tolist()
+        stars = ppiStats.sigstars[ppiStats['p-Value']<=0.05].tolist()
+        startY = barTops[startX]+10
+        endY = [barTops[x] for x in endX]
+        for x,y,ss in zip(endX,endY,stars):
+            midpoint = (x+startX)/2
+            midY = (startY+y)/2
+            plt.pyplot.plot([startX,startX,x,x],[startY,startY+5,startY+5,midY],linewidth=2,color='k')
+            plt.pyplot.text(midpoint,startY+3,ss)
+            startY = startY+12
     
         # % PPI plot
         ax=plt.pyplot.subplot(2,2,4)
@@ -189,6 +253,7 @@ for fn in file_paths:
 
     savefile = os.path.join(data_dir,animal+'_PPI_Results_Figure.png')
     plt.pyplot.savefig(savefile)
+    plt.pyplot.close()
     
     print('')
     print('Plot saved to '+savefile)
