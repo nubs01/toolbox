@@ -1,10 +1,7 @@
-function out = rn_EMGFromLFP(animID,dataDir,sessionNum,validTets,varargin)
+function out = rn_EMGFromLFP(animID,dataDir,sessionNum,varargin)
     % Use high-frequency correlations between tetrodes to generate estimation of EMG
     % written for Jadhav Lab Filterframework data based on code from Buzsaki lab
-    % animID: animal ID (prefix for all files)
-    % dataDir: direct folder which contains an EEG folder with raw eeg data
-    % sessionNum: day to analyze (will run on all epochs in day)
-    % validTets: array of valid tetrodes to use (ideally all tetrodes targetting CA1 including those not in CA1)
+    % if you're not using  a 
 
     filterFile = 'EMGFromLFP_filter.mat';
     Hd =  load(filterFile);
@@ -14,6 +11,20 @@ function out = rn_EMGFromLFP(animID,dataDir,sessionNum,validTets,varargin)
     corrChunkSz = 20;
 
     assignVars(varargin)
+
+    % Grab animal metadata
+    animDat = getAnimMetadata(animID);
+    if isempty(animDat.recording_data)
+        disp(['No recording metadata data found for ' animID])
+        return;
+    end
+    recDat = animDat.recording_data(sessionNum);
+    tetInfo = recDat.tet_info;
+
+    % figure out which tets to use (all except exclude)
+    % requirements: not EMG, lfp_channel~=0, not exclude
+    validTets = find((str2double({tetInfo.lfp_channel})>0 & ~[tetInfo.exclude] & ~[tetInfo.emg]));
+    epochs = 1:numel(recDat.epochs);
 
     % Setup data and save directories
     eegDir = [dataDir filesep 'EEG' filesep];
